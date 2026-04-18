@@ -51,6 +51,7 @@
   <button class="period-btn" data-start="0" data-end="9999">All Data</button>
 </div>
 
+<div class="stats-section" id="liveRow" style="margin-bottom: 30px;">
     <div class="stats-row">
         <div class="stat-card" style="border-bottom: 4px solid var(--min-color);">
             <span class="stat-label" id="liveMinLabel">Today's Observed Minimum Temperature</span>
@@ -113,13 +114,9 @@
   <div id="lineDiv"></div>
   <div class="window-chart-wrap">
     <div id="windowTempDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; width: 100%; height: 480px; border: 1px solid var(--border); box-sizing: border-box;"></div>
-    <input type="range" id="tempScrollbar" min="0" max="364" value="182"
-      style="width: calc(100% - 70px); margin: 4px 50px 0 20px; accent-color: var(--primary); display: block; cursor: pointer;">
   </div>
   <div class="window-chart-wrap">
     <div id="windowPrecipDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; width: 100%; height: 480px; border: 1px solid var(--border); box-sizing: border-box;"></div>
-    <input type="range" id="precipScrollbar" min="0" max="364" value="182"
-      style="width: calc(100% - 70px); margin: 4px 50px 0 20px; accent-color: var(--primary); display: block; cursor: pointer;">
   </div>
 </div>
 

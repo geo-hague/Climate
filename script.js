@@ -782,42 +782,46 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.4 }
       });
     }
-    // 6. CONTEXT WINDOW — ±182 days around selected date, across year boundaries
-    const toISO = (d) => d.toISOString().split('T')[0];
+    // 6. CONTEXT WINDOW — ±912 days (~5 years total) centered on selected date
+    //    Future dates included on axis so normals extend forward; data null for those days
     const selectedDate = new Date(sYear, mIdx - 1, dReq, 12);
-    const windowStart = new Date(selectedDate.getTime() - 182 * 86400000);
-    const windowEnd   = new Date(selectedDate.getTime() + 182 * 86400000);
+    const HALF_WINDOW = 912;
 
-    const yearSlice = fullDataset
-        .filter(d => {
-            if (!d.DATE) return false;
-            const t = new Date(d.DATE + 'T12:00:00').getTime();
-            return t >= windowStart.getTime() && t <= windowEnd.getTime();
-        })
-        .sort((a, b) => a.DATE.localeCompare(b.DATE));
+    const windowDates = [];
+    for (let i = -HALF_WINDOW; i <= HALF_WINDOW; i++) {
+        const d = new Date(selectedDate.getTime() + i * 86400000);
+        windowDates.push(d.toISOString().split('T')[0]);
+    }
 
-    const windowDates = yearSlice.map(d => d.DATE); // YYYY-MM-DD strings
+    // Fast data lookup by date string
+    const dataByDate = {};
+    fullDataset.forEach(r => { if (r.DATE) dataByDate[r.DATE] = r; });
 
-    const historicalAverages = yearSlice.map(d => {
-        const p = d.DATE.split('-');
-        const m = parseInt(p[1]);
-        const day = parseInt(p[2]);
-        const rangeS = currentRange.start === 0 ? 1900 : currentRange.start;
-        const rangeE = currentRange.end >= 9000 ? 2025 : currentRange.end;
+    // Rows for each window date (null for missing/future dates)
+    const windowRows = windowDates.map(iso => dataByDate[iso] || null);
+
+    // Efficient: precompute M/D averages only once per unique calendar day (≤366)
+    const rangeS = currentRange.start === 0 ? 1900 : currentRange.start;
+    const rangeE = currentRange.end >= 9000 ? 2025 : currentRange.end;
+    const mdAvgCache = {};
+    [...new Set(windowDates.map(d => d.slice(5)))].forEach(md => {
+        const [m, day] = md.split('-').map(Number);
         const matches = fullDataset.filter(row => {
-            const rp = row.DATE.toString().split('-');
-            return parseInt(rp[1]) === m && parseInt(rp[2]) === day &&
-                   parseInt(rp[0]) >= rangeS && parseInt(rp[0]) <= rangeE;
+            const p = row.DATE.toString().split('-');
+            return parseInt(p[1]) === m && parseInt(p[2]) === day &&
+                   parseInt(p[0]) >= rangeS && parseInt(p[0]) <= rangeE;
         });
-        const tmaxVals = matches.map(r => convert(r.TMAX/10)).filter(v => v !== null);
-        const tminVals = matches.map(r => convert(r.TMIN/10)).filter(v => v !== null);
-        return {
-            avgMax: tmaxVals.length ? tmaxVals.reduce((a,b)=>a+b,0)/tmaxVals.length : null,
-            avgMin: tminVals.length ? tminVals.reduce((a,b)=>a+b,0)/tminVals.length : null,
+        const tmaxVals = matches.map(r => convert(r.TMAX / 10)).filter(v => v !== null);
+        const tminVals = matches.map(r => convert(r.TMIN / 10)).filter(v => v !== null);
+        mdAvgCache[md] = {
+            avgMax: tmaxVals.length ? tmaxVals.reduce((a, b) => a + b, 0) / tmaxVals.length : null,
+            avgMin: tminVals.length ? tminVals.reduce((a, b) => a + b, 0) / tminVals.length : null,
             stdMax: getStdDev(tmaxVals),
             stdMin: getStdDev(tminVals)
         };
     });
+
+    const historicalAverages = windowDates.map(iso => mdAvgCache[iso.slice(5)]);
 
     // --- 7. UPDATED GATEKEEPER: LIVE OR HISTORICAL OBSERVATION ---
     const todayBtn = document.getElementById('todayBtn');
@@ -850,63 +854,69 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             liveRow.style.display = 'none';
         }
     }
-    renderWindowCharts(yearSlice, historicalAverages, sYear, windowDates, rangeText, selectedDate);
+    renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);
 }
 
-function renderWindowCharts(yearSlice, histAverages, sYear, dates, rangeText, selectedDate) {
+function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, selectedDate) {
     const isF = document.getElementById('unitToggle').checked;
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const tempUnit = isF ? "°F" : "°C";
     const precipUnit = isF ? "in" : "mm";
+    const precipDecimals = isF ? 2 : 1;
 
-    const convertTemp = (v) => (v === null ? null : (isF ? (v * 9/5 + 32) : v));
+    const convertTemp = (v) => (v === null || v === undefined ? null : (isF ? (v * 9/5 + 32) : v));
     const convertPrecip = (v) => {
-        if (v == null) return 0;
+        if (v == null) return null;
         const mm = v / 10;
-        return isF ? parseFloat((mm * 0.0393701).toFixed(2)) : parseFloat(mm.toFixed(1));
+        const val = isF ? mm * 0.0393701 : mm;
+        return val > 0 ? parseFloat(val.toFixed(precipDecimals)) : null;
     };
 
-    const toISO = (d) => d.toISOString().split('T')[0];
-    const selISO = toISO(selectedDate);
-    const viewStart = toISO(new Date(selectedDate.getTime() - 30 * 86400000));
-    const viewEnd   = toISO(new Date(selectedDate.getTime() + 30 * 86400000));
+    const selISO = selectedDate.toISOString().split('T')[0];
+    const viewStart = new Date(selectedDate.getTime() - 30 * 86400000).toISOString().split('T')[0];
+    const viewEnd   = new Date(selectedDate.getTime() + 30 * 86400000).toISOString().split('T')[0];
 
-    // Jan 1 annotations — show year at start of each new year in the window
+    // Jan 1 year annotations
     const jan1Annotations = dates
         .filter(d => d.slice(5) === '01-01')
         .map(d => ({
-            x: d, yref: 'paper', y: -0.08,
+            x: d, yref: 'paper', y: 1.02, yanchor: 'bottom',
             text: `<b>${d.slice(0, 4)}</b>`,
             showarrow: false, xanchor: 'center',
             font: { size: 10, color: isDark ? '#a0a0a0' : '#636e72' }
         }));
 
-    // Ribbon math
+    // Ribbon math — null-safe
     const xDouble = dates.concat([...dates].reverse());
     const maxRibbonY = histAverages.map(h => h.avgMax !== null ? h.avgMax + h.stdMax : null)
         .concat([...histAverages].reverse().map(h => h.avgMax !== null ? h.avgMax - h.stdMax : null));
     const minRibbonY = histAverages.map(h => h.avgMin !== null ? h.avgMin + h.stdMin : null)
         .concat([...histAverages].reverse().map(h => h.avgMin !== null ? h.avgMin - h.stdMin : null));
 
+    const tmaxData = windowRows.map(r => r ? convertTemp(r.TMAX != null ? r.TMAX / 10 : null) : null);
+    const tminData = windowRows.map(r => r ? convertTemp(r.TMIN != null ? r.TMIN / 10 : null) : null);
+
     const tempTraces = [
         { x: xDouble, y: maxRibbonY, fill: 'toself', fillcolor: 'rgba(255,118,117,0.1)', line: {color:'transparent'}, name: 'Normal Range (Max)', showlegend: false, hoverinfo: 'skip' },
         { x: xDouble, y: minRibbonY, fill: 'toself', fillcolor: 'rgba(116,185,255,0.1)', line: {color:'transparent'}, name: 'Normal Range (Min)', showlegend: false, hoverinfo: 'skip' },
         {
-            x: dates, y: yearSlice.map(d => convertTemp(d.TMAX/10)),
-            text: yearSlice.map((d, i) => getSigmaClassification(convertTemp(d.TMAX/10), histAverages[i].avgMax, dailyReferenceValues.tmax)),
-            name: `${sYear} Maximum Temperature`, mode: 'lines+markers',
-            line: {color: '#ff7675', width: 3}, marker: {size: 6},
+            x: dates, y: tmaxData,
+            text: tmaxData.map((v, i) => v !== null ? getSigmaClassification(v, histAverages[i].avgMax, dailyReferenceValues.tmax) : ''),
+            name: 'Observed Maximum', mode: 'lines+markers',
+            line: {color: '#ff7675', width: 2}, marker: {size: 4},
+            connectgaps: false,
             hovertemplate: 'Date: %{x}<br>Temp: %{y:.1f}' + tempUnit + '<br><b>%{text}</b><extra></extra>'
         },
         {
-            x: dates, y: yearSlice.map(d => convertTemp(d.TMIN/10)),
-            text: yearSlice.map((d, i) => getSigmaClassification(convertTemp(d.TMIN/10), histAverages[i].avgMin, dailyReferenceValues.tmin)),
-            name: `${sYear} Minimum Temperature`, mode: 'lines+markers',
-            line: {color: '#74b9ff', width: 3}, marker: {size: 6},
+            x: dates, y: tminData,
+            text: tminData.map((v, i) => v !== null ? getSigmaClassification(v, histAverages[i].avgMin, dailyReferenceValues.tmin) : ''),
+            name: 'Observed Minimum', mode: 'lines+markers',
+            line: {color: '#74b9ff', width: 2}, marker: {size: 4},
+            connectgaps: false,
             hovertemplate: 'Date: %{x}<br>Temp: %{y:.1f}' + tempUnit + '<br><b>%{text}</b><extra></extra>'
         },
-        { x: dates, y: histAverages.map(h => h.avgMax), name: 'Normal Maximum Temperature', mode: 'lines', line: {color:'#ff7675', dash:'dot', width:1.5}, hovertemplate: 'Normal Max<br>Date: %{x}<br>Temp: %{y:.1f}' + tempUnit + '<extra></extra>' },
-        { x: dates, y: histAverages.map(h => h.avgMin), name: 'Normal Minimum Temperature', mode: 'lines', line: {color:'#74b9ff', dash:'dot', width:1.5}, hovertemplate: 'Normal Min<br>Date: %{x}<br>Temp: %{y:.1f}' + tempUnit + '<extra></extra>' }
+        { x: dates, y: histAverages.map(h => h.avgMax), name: 'Normal Maximum', mode: 'lines', line: {color:'#ff7675', dash:'dot', width:1.5}, hovertemplate: 'Normal Max<br>%{x}: %{y:.1f}' + tempUnit + '<extra></extra>' },
+        { x: dates, y: histAverages.map(h => h.avgMin), name: 'Normal Minimum', mode: 'lines', line: {color:'#74b9ff', dash:'dot', width:1.5}, hovertemplate: 'Normal Min<br>%{x}: %{y:.1f}' + tempUnit + '<extra></extra>' }
     ];
 
     const baseLayout = {
@@ -916,19 +926,24 @@ function renderWindowCharts(yearSlice, histAverages, sYear, dates, rangeText, se
             type: 'date',
             range: [viewStart, viewEnd],
             tickformat: '%b %d',
-            nticks: 12,
+            nticks: 10,
             tickangle: -45,
             gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
             automargin: true,
             rangeslider: { visible: false }
         },
-        margin: { t: 60, b: 80, l: 50, r: 20 },
+        margin: { t: 70, b: 80, l: 50, r: 20 },
         legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.45 },
         hovermode: 'closest',
         annotations: jan1Annotations
     };
 
-    const plotConfig = { scrollZoom: true, displayModeBar: false };
+    const plotConfig = {
+        scrollZoom: true,
+        displayModeBar: true,
+        modeBarButtonsToRemove: ['select2d','lasso2d','autoScale2d','resetScale2d','toImage'],
+        displaylogo: false
+    };
 
     Plotly.react('windowTempDiv', tempTraces, {
         ...baseLayout,
@@ -936,74 +951,56 @@ function renderWindowCharts(yearSlice, histAverages, sYear, dates, rangeText, se
         yaxis: { title: tempUnit, gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
     }, plotConfig);
 
+    // Precipitation
+    const precipData = windowRows.map(r => r ? convertPrecip(r.PRCP) : null);
+
     const precipTrace = {
-        x: dates,
-        y: yearSlice.map(d => { const v = convertPrecip(d.PRCP); return v > 0 ? v : null; }),
+        x: dates, y: precipData,
         type: 'bar',
         marker: { color: '#0984e3', opacity: 0.7, line: { width: 0 } },
         name: 'Daily Precip',
-        hovertemplate: `Date: %{x}<br>Amount: %{y} ${precipUnit}<extra></extra>`
+        hovertemplate: `%{x}<br>%{y} ${precipUnit}<extra></extra>`
     };
+
+    const calcVisiblePrecip = (r0, r1) => {
+        let total = 0;
+        for (let i = 0; i < dates.length; i++) {
+            if (dates[i] >= r0 && dates[i] <= r1 && precipData[i] !== null) total += precipData[i];
+        }
+        return total.toFixed(precipDecimals) + ' ' + precipUnit;
+    };
+
+    const precipTitle = (total) =>
+        `<b>${sYear} Precipitation (Visible Total: ${total})</b><br>${lastStation.name}, ${lastStation.state}`;
+
+    const initialTotal = calcVisiblePrecip(viewStart, viewEnd);
 
     Plotly.react('windowPrecipDiv', [precipTrace], {
         ...baseLayout,
-        title: { text: `<b>${sYear} Precipitation</b><br>${lastStation.name}, ${lastStation.state}`, x: 0.5, xanchor: 'center' },
-        xaxis: { ...baseLayout.xaxis },
-        yaxis: { title: precipUnit, gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', rangemode: 'nonnegative', zeroline: false }
+        title: { text: precipTitle(initialTotal), x: 0.5, xanchor: 'center' },
+        yaxis: {
+            title: precipUnit,
+            gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+            rangemode: 'nonnegative',
+            zeroline: false
+        }
     }, plotConfig);
 
-    // Wire up independent scrollbars for each chart
-    setupScrollbar('windowTempDiv',    'tempScrollbar',   dates, selectedDate);
-    setupScrollbar('windowPrecipDiv',  'precipScrollbar', dates, selectedDate);
+    // Dynamic precip total — update title on zoom/pan
+    const precipDiv = document.getElementById('windowPrecipDiv');
+    precipDiv.removeAllListeners && precipDiv.removeAllListeners('plotly_relayout');
+    precipDiv.on('plotly_relayout', (ev) => {
+        const r0 = (ev['xaxis.range[0]'] || '').split(' ')[0];
+        const r1 = (ev['xaxis.range[1]'] || '').split(' ')[0];
+        if (r0 && r1) {
+            Plotly.relayout('windowPrecipDiv', { 'title.text': precipTitle(calcVisiblePrecip(r0, r1)) });
+        }
+    });
 
     Plotly.Plots.resize('windowTempDiv');
     Plotly.Plots.resize('windowPrecipDiv');
 }
 
-function setupScrollbar(divId, scrollbarId, dates, selectedDate) {
-    const scrollbar = document.getElementById(scrollbarId);
-    if (!scrollbar || !dates.length) return;
-
-    scrollbar.min = 0;
-    scrollbar.max = dates.length - 1;
-
-    // Set initial thumb to selected date
-    const selISO = selectedDate.toISOString().split('T')[0];
-    const selIdx = dates.findIndex(d => d >= selISO);
-    scrollbar.value = selIdx === -1 ? Math.floor(dates.length / 2) : selIdx;
-
-    // Replace listener cleanly
-    const newScrollbar = scrollbar.cloneNode(true);
-    scrollbar.parentNode.replaceChild(newScrollbar, scrollbar);
-
-    // Track the current half-window in days (default ±30)
-    let halfDays = 30;
-
-    newScrollbar.addEventListener('input', () => {
-        const centerISO = dates[parseInt(newScrollbar.value)];
-        const centerMs  = new Date(centerISO + 'T12:00:00').getTime();
-        const start = new Date(centerMs - halfDays * 86400000).toISOString().split('T')[0];
-        const end   = new Date(centerMs + halfDays * 86400000).toISOString().split('T')[0];
-        Plotly.relayout(divId, { 'xaxis.range': [start, end] });
-    });
-
-    // Sync scrollbar when user zooms/pans chart directly
-    const plotEl = document.getElementById(divId);
-    plotEl.removeAllListeners && plotEl.removeAllListeners('plotly_relayout');
-    plotEl.on('plotly_relayout', (ev) => {
-        const r0 = ev['xaxis.range[0]'];
-        const r1 = ev['xaxis.range[1]'];
-        if (r0 && r1) {
-            const t0 = new Date(r0).getTime();
-            const t1 = new Date(r1).getTime();
-            halfDays = Math.round((t1 - t0) / 2 / 86400000);
-            const centerMs = (t0 + t1) / 2;
-            const centerISO = new Date(centerMs).toISOString().split('T')[0];
-            const idx = dates.findIndex(d => d >= centerISO);
-            newScrollbar.value = idx === -1 ? dates.length - 1 : Math.max(0, idx);
-        }
-    });
-}
   
   window.addEventListener('resize', () => { 
       const charts = ['boxDiv', 'lineDiv', 'windowTempDiv', 'windowPrecipDiv'];
