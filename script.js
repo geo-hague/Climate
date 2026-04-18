@@ -783,12 +783,13 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       });
     }
     // 6. CONTEXT WINDOW — ±912 days (~5 years total) centered on selected date
-    //    Future dates included on axis so normals extend forward; data null for those days
+    //    Future dates: 1 year forward. Past: 4 years back.
     const selectedDate = new Date(sYear, mIdx - 1, dReq, 12);
-    const HALF_WINDOW = 912;
+    const DAYS_BACK    = 4 * 365; // ~4 years
+    const DAYS_FORWARD = 1 * 365; // ~1 year
 
     const windowDates = [];
-    for (let i = -HALF_WINDOW; i <= HALF_WINDOW; i++) {
+    for (let i = -DAYS_BACK; i <= DAYS_FORWARD; i++) {
         const d = new Date(selectedDate.getTime() + i * 86400000);
         windowDates.push(d.toISOString().split('T')[0]);
     }
@@ -980,6 +981,8 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
 
     // Precipitation
     const precipData = windowRows.map(r => r ? convertPrecip(r.PRCP) : null);
+    const maxPrecip = Math.max(0, ...precipData.filter(v => v !== null));
+    const precipYMax = maxPrecip > 0 ? maxPrecip * 1.15 : 1;
 
     const precipTrace = {
         x: dates, y: precipData,
@@ -1007,21 +1010,29 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         title: { text: precipTitle(initialTotal), x: 0.5, xanchor: 'center' },
         yaxis: {
             title: precipUnit,
+            range: [0, precipYMax],
+            fixedrange: true,       // lock y — prevents negative zoom and hover artifacts
             gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-            rangemode: 'nonnegative',
             zeroline: false
         }
     }, plotConfig);
 
-    // Dynamic precip total — update title on zoom/pan
+    // Update precip title on zoom/pan using a debounced approach to avoid redraw loops
     const precipDiv = document.getElementById('windowPrecipDiv');
     precipDiv.removeAllListeners && precipDiv.removeAllListeners('plotly_relayout');
+    let precipTitleTimer = null;
     precipDiv.on('plotly_relayout', (ev) => {
         const r0 = (ev['xaxis.range[0]'] || '').split(' ')[0];
         const r1 = (ev['xaxis.range[1]'] || '').split(' ')[0];
-        if (r0 && r1) {
-            Plotly.relayout('windowPrecipDiv', { 'title.text': precipTitle(calcVisiblePrecip(r0, r1)) });
-        }
+        if (!r0 || !r1) return;
+        clearTimeout(precipTitleTimer);
+        precipTitleTimer = setTimeout(() => {
+            const el = document.getElementById('windowPrecipDiv');
+            if (el && el._fullLayout) {
+                el._fullLayout.title.text = precipTitle(calcVisiblePrecip(r0, r1));
+                Plotly.redraw('windowPrecipDiv');
+            }
+        }, 300);
     });
 
     Plotly.Plots.resize('windowTempDiv');
