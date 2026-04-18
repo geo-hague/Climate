@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Climate Analytics Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<h2 class="top-header">Daily Climate Analytics Dashboard</h2>
+<div id="stationHeader">Select a station marker on the map or search to begin.</div>
+
+<div id="map"></div>
+
+<div id="controls">
+    <div class="search-container">
+        <input type="text" id="stationSearch" placeholder="Search station name or ID...">
+        <span id="clearSearch">&times;</span>
+        <div id="searchResults"></div>
+    </div>
+    
+    <div class="dropdown-group">
+        <select id="month">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+        </select>
+        <select id="day"></select>
+        <select id="yearSelect"></select>
+        <button id="todayBtn">Today</button>
+    </div>
+
+    <div style="display:flex; align-items:center; border-left:1px solid var(--border); padding-left:15px; flex-shrink:0;">
+        <span id="labelC" class="unit-label" style="font-size:0.7rem; font-weight:700">°C</span>
+        <label class="switch"><input type="checkbox" id="unitToggle" checked><span class="slider"></span></label>
+        <span id="labelF" class="unit-label" style="font-size:0.7rem; font-weight:700">°F</span>
+    </div>
+</div>
+
+<div id="periodRibbon">
+  <button class="period-btn" data-start="1961" data-end="1990">1961-1990</button>
+  <button class="period-btn" data-start="1971" data-end="2000">1971-2000</button>
+  <button class="period-btn" data-start="1981" data-end="2010">1981-2010</button>
+  <button class="period-btn" data-start="1991" data-end="2020" id="defaultPeriod">1991-2020</button>
+  <button class="period-btn" data-start="0" data-end="9999">All Data</button>
+</div>
+
+<div class="stats-section" id="liveRow" style="margin-bottom: 30px;">
+    <div class="stats-row">
+        <div class="stat-card" style="border-bottom: 4px solid var(--min-color);">
+            <span class="stat-label" id="liveMinLabel">Today's Observed Minimum Temperature</span>
+            <span class="stat-value" id="liveMin">--</span>
+            <span class="departure-info" id="liveMinDep"></span>
+        </div>
+        <div class="stat-card" style="border-bottom: 4px solid var(--max-color);">
+            <span class="stat-label" id="liveMaxLabel">Today's Observed Maximum Temperature</span>
+            <span class="stat-value" id="liveMax">--</span>
+            <span class="departure-info" id="liveMaxDep"></span>
+        </div>
+    </div>
+</div>
+
+<div class="stats-section">
+  <div class="stats-row">
+    <div class="stat-card min daily"><span class="stat-label" id="dayMinLabel">Average Minimum Temperature</span><span class="stat-value" id="avgMin">--</span></div>
+    <div class="stat-card max daily"><span class="stat-label" id="dayMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="avgMax">--</span></div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card min"><span class="stat-label" id="monMinLabel">Average Minimum Temperature</span><span class="stat-value" id="monMin">--</span></div>
+    <div class="stat-card max"><span class="stat-label" id="monMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="monMax">--</span></div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card min"><span class="stat-label" id="currMonthMinLabel">Average Minimum Temperature</span><span class="stat-value" id="currMonthMin">--</span></div>
+    <div class="stat-card max"><span class="stat-label" id="currMonthMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="currMonthMax">--</span></div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card min daily"><span class="stat-label" id="recDayMinLabel">Record Minimum Temperature</span><span class="stat-value" id="recDayMin">--</span></div>
+    <div class="stat-card max daily"><span class="stat-label" id="recDayMaxLabel">Record Maximum Temperature</span><span class="stat-value" id="recDayMax">--</span></div>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card min"><span class="stat-label" id="recMonMinLabel">Record Minimum Temperature</span><span class="stat-value" id="recMonMin">--</span></div>
+    <div class="stat-card max"><span class="stat-label" id="recMonMaxLabel">Record Maximum Temperature</span><span class="stat-value" id="recMonMax">--</span></div>
+  </div>
+</div>
+
+<div id="plots">
+  <div id="boxDiv"></div>
+  <div id="lineDiv"></div>
+  <div id="windowTempDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; width: 46%; height: 400px; min-width: 380px; border: 1px solid var(--border);"></div>
+  <div id="windowPrecipDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; width: 46%; height: 400px; min-width: 380px; border: 1px solid var(--border);"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
