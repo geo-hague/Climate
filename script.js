@@ -532,12 +532,14 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
 
     // PRECIPITATION TOTALS
     const precipUnit = isF ? "in" : "mm";
+    const precipDecimals = isF ? 2 : 1;
     const convertPrecip = (v) => {
         if (v == null) return 0;
         const mm = v / 10;
-        return isF ? parseFloat((mm * 0.0393701).toFixed(2)) : parseFloat(mm.toFixed(1));
+        return isF ? parseFloat((mm * 0.0393701).toFixed(precipDecimals)) : parseFloat(mm.toFixed(precipDecimals));
     };
 
+    // Selected month/year totals
     const monthPrecipTotal = fullDataset
         .filter(d => { const p = d.DATE.split('-'); return parseInt(p[0]) === sYear && parseInt(p[1]) === mIdx; })
         .reduce((sum, d) => sum + convertPrecip(d.PRCP), 0);
@@ -547,6 +549,95 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
         .reduce((sum, d) => sum + convertPrecip(d.PRCP), 0);
 
     const yearLabel = sYear === systemYear ? 'Year-to-Date' : 'Annual';
+
+    // Per-year monthly totals for the selected month (all years in dataset)
+    const allYears = [...new Set(fullDataset.map(d => parseInt(d.DATE.split('-')[0])))].sort();
+    const monthlyTotalsByYear = allYears.map(y => ({
+        year: y,
+        total: fullDataset
+            .filter(d => { const p = d.DATE.split('-'); return parseInt(p[0]) === y && parseInt(p[1]) === mIdx; })
+            .reduce((sum, d) => sum + convertPrecip(d.PRCP), 0)
+    }));
+
+    // Per-year annual totals (all years in dataset)
+    const annualTotalsByYear = allYears.map(y => ({
+        year: y,
+        total: fullDataset
+            .filter(d => parseInt(d.DATE.split('-')[0]) === y)
+            .reduce((sum, d) => sum + convertPrecip(d.PRCP), 0)
+    }));
+
+    // Average monthly precip (period range)
+    const periodMonthlyTotals = monthlyTotalsByYear.filter(r => r.year >= currentRange.start && r.year <= currentRange.end);
+    const avgMonthPrecip = periodMonthlyTotals.length
+        ? periodMonthlyTotals.reduce((s, r) => s + r.total, 0) / periodMonthlyTotals.length
+        : null;
+
+    // Average annual precip (period range)
+    const periodAnnualTotals = annualTotalsByYear.filter(r => r.year >= currentRange.start && r.year <= currentRange.end);
+    const avgYearPrecip = periodAnnualTotals.length
+        ? periodAnnualTotals.reduce((s, r) => s + r.total, 0) / periodAnnualTotals.length
+        : null;
+
+    // Record monthly precip (all years)
+    const recMonthMaxPrecip = monthlyTotalsByYear.reduce((rec, r) => r.total > (rec?.total ?? -Infinity) ? r : rec, null);
+    const recMonthMinPrecip = monthlyTotalsByYear.reduce((rec, r) => r.total < (rec?.total ?? Infinity) ? r : rec, null);
+
+    // Record annual precip (all years)
+    const recYearMaxPrecip = annualTotalsByYear.reduce((rec, r) => r.total > (rec?.total ?? -Infinity) ? r : rec, null);
+    const recYearMinPrecip = annualTotalsByYear.reduce((rec, r) => r.total < (rec?.total ?? Infinity) ? r : rec, null);
+
+    // All-time record temperatures (entire dataset, any date)
+    const allTimeMaxRow = fullDataset.reduce((rec, r) => r.TMAX != null && (rec === null || r.TMAX > rec.TMAX) ? r : rec, null);
+    const allTimeMinRow = fullDataset.reduce((rec, r) => r.TMIN != null && (rec === null || r.TMIN < rec.TMIN) ? r : rec, null);
+
+    const fmtPrecip = (v) => v !== null ? v.toFixed(precipDecimals) + ' ' + precipUnit : '--';
+    const fmtDate = (dateStr) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return `${monthNames[m-1]} ${d}, ${y}`;
+    };
+
+    // Update precip cards
+    document.getElementById('precipMonthTotalLabel').innerHTML =
+        `${monthName} ${sYear} Total Precipitation`;
+    document.getElementById('precipMonthTotal').textContent = fmtPrecip(monthPrecipTotal);
+
+    document.getElementById('precipYearTotalLabel').innerHTML =
+        `${sYear} ${yearLabel} Total Precipitation`;
+    document.getElementById('precipYearTotal').textContent = fmtPrecip(yearPrecipTotal);
+
+    document.getElementById('precipAvgMonthLabel').innerHTML =
+        `${monthName} Average Precipitation ${rangeHtml}`;
+    document.getElementById('precipAvgMonth').textContent = fmtPrecip(avgMonthPrecip);
+
+    document.getElementById('precipAvgYearLabel').innerHTML =
+        `Average Annual Precipitation ${rangeHtml}`;
+    document.getElementById('precipAvgYear').textContent = fmtPrecip(avgYearPrecip);
+
+    document.getElementById('precipRecMonthMaxLabel').innerHTML =
+        `${monthName} Record Maximum Precipitation${recMonthMaxPrecip ? yearSmall(`Set in ${recMonthMaxPrecip.year}`) : ''}`;
+    document.getElementById('precipRecMonthMax').textContent = fmtPrecip(recMonthMaxPrecip?.total ?? null);
+
+    document.getElementById('precipRecMonthMinLabel').innerHTML =
+        `${monthName} Record Minimum Precipitation${recMonthMinPrecip ? yearSmall(`Set in ${recMonthMinPrecip.year}`) : ''}`;
+    document.getElementById('precipRecMonthMin').textContent = fmtPrecip(recMonthMinPrecip?.total ?? null);
+
+    document.getElementById('precipRecYearMaxLabel').innerHTML =
+        `Record Maximum Annual Precipitation${recYearMaxPrecip ? yearSmall(`Set in ${recYearMaxPrecip.year}`) : ''}`;
+    document.getElementById('precipRecYearMax').textContent = fmtPrecip(recYearMaxPrecip?.total ?? null);
+
+    document.getElementById('precipRecYearMinLabel').innerHTML =
+        `Record Minimum Annual Precipitation${recYearMinPrecip ? yearSmall(`Set in ${recYearMinPrecip.year}`) : ''}`;
+    document.getElementById('precipRecYearMin').textContent = fmtPrecip(recYearMinPrecip?.total ?? null);
+
+    // All-time temperature records
+    document.getElementById('allTimeMaxLabel').innerHTML =
+        `All-Time Record Maximum Temperature${allTimeMaxRow ? yearSmall(fmtDate(allTimeMaxRow.DATE)) : ''}`;
+    document.getElementById('allTimeMax').textContent = allTimeMaxRow ? convert(allTimeMaxRow.TMAX / 10).toFixed(1) + unit : '--';
+
+    document.getElementById('allTimeMinLabel').innerHTML =
+        `All-Time Record Minimum Temperature${allTimeMinRow ? yearSmall(fmtDate(allTimeMinRow.DATE)) : ''}`;
+    document.getElementById('allTimeMin').textContent = allTimeMinRow ? convert(allTimeMinRow.TMIN / 10).toFixed(1) + unit : '--';
 
 // 4. CURRENT 2026 MONTH CARDS (Only show if 2026 is selected)
     const currentSystemMonth = todayDate.getMonth() + 1; 
@@ -768,10 +859,10 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             liveRow.style.display = 'none';
         }
     }
-    renderWindowCharts(yearSlice, historicalAverages, sYear, windowLabels, rangeText, monthPrecipTotal, yearPrecipTotal, monthName, yearLabel);
+    renderWindowCharts(yearSlice, historicalAverages, sYear, windowLabels, rangeText);
 }
 
-function renderWindowCharts(yearSlice, histAverages, sYear, labels, rangeText, monthPrecipTotal, yearPrecipTotal, monthName, yearLabel) {
+function renderWindowCharts(yearSlice, histAverages, sYear, labels, rangeText) {
     const isF = document.getElementById('unitToggle').checked;
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
@@ -883,9 +974,7 @@ function renderWindowCharts(yearSlice, histAverages, sYear, labels, rangeText, m
     Plotly.react('windowPrecipDiv', [precipTrace], { 
         ...baseLayout, 
         title: {
-            text: `<b>${sYear} Precipitation</b><br>` +
-                  `Window: ${totalPrecip} ${precipUnit}  ·  ${monthName} Total: ${monthPrecipTotal.toFixed(isF ? 2 : 1)} ${precipUnit}  ·  ${yearLabel}: ${yearPrecipTotal.toFixed(isF ? 2 : 1)} ${precipUnit}<br>` +
-                  `${lastStation.name}, ${lastStation.state}`,
+            text: `<b>${sYear} Precipitation (Total: ${totalPrecip} ${precipUnit})</b><br>${lastStation.name}, ${lastStation.state}`,
             x: 0.5,
             xanchor: 'center'
         },
