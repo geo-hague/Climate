@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
   let lastStation = null, fullDataset = null, allStations = [], currentRange = { start: 1991, end: 2020 };
-  let dailyReferenceValues = { tmin: [], tmax: [] }; 
+  let dailyReferenceValues = { tmin: [], tmax: [] };
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   const map = L.map('map', { zoomSnap: 0.5 }).setView([35.5, -80], 7);
@@ -193,10 +193,6 @@ legend.addTo(map);
           `;
             
           processAndPlot();
-        },
-        error: function() {
-          document.getElementById('stationHeader').innerHTML = 
-              `<span style="color:var(--max-color)">Error: Data not found for station ${lastStation.station}.</span>`;
         }
       });
     }
@@ -581,11 +577,11 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
 
     // Record monthly precip (all years)
     const recMonthMaxPrecip = monthlyTotalsByYear.reduce((rec, r) => r.total > (rec?.total ?? -Infinity) ? r : rec, null);
-    const recMonthMinPrecip = monthlyTotalsByYear.reduce((rec, r) => r.total < (rec?.total ?? Infinity) ? r : rec, null);
+    const recMonthMinPrecip = monthlyTotalsByYear.filter(r => r.year < systemYear).reduce((rec, r) => r.total < (rec?.total ?? Infinity) ? r : rec, null);
 
     // Record annual precip (all years)
     const recYearMaxPrecip = annualTotalsByYear.reduce((rec, r) => r.total > (rec?.total ?? -Infinity) ? r : rec, null);
-    const recYearMinPrecip = annualTotalsByYear.reduce((rec, r) => r.total < (rec?.total ?? Infinity) ? r : rec, null);
+    const recYearMinPrecip = annualTotalsByYear.filter(r => r.year < systemYear).reduce((rec, r) => r.total < (rec?.total ?? Infinity) ? r : rec, null);
 
     // All-time record temperatures (entire dataset, any date)
     const allTimeMaxRow = fullDataset.reduce((rec, r) => r.TMAX != null && (rec === null || r.TMAX > rec.TMAX) ? r : rec, null);
@@ -786,23 +782,12 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.4 }
       });
     }
-    // 6. NEW CONTEXT WINDOW (±15 Days)
+    // 6. CONTEXT WINDOW — load full year, let Plotly range slider handle zooming
     const selectedDate = new Date(sYear, mIdx - 1, dReq);
-    
-    // Check if we are looking at the current year (2026) and today's date
-    const isCurrentEnd = (sYear === 2026 && mIdx === 1 && dReq === 31);
 
     const yearSlice = fullDataset.filter(d => {
         const p = d.DATE.split('-');
-        const dDate = new Date(parseInt(p[0]), parseInt(p[1]) - 1, parseInt(p[2]));
-        
-        if (isCurrentEnd) {
-            // If it's today, show the last 30 days so the chart is full
-            return parseInt(p[0]) === 2026 && (selectedDate - dDate) / 86400000 <= 30 && (selectedDate - dDate) >= 0;
-        } else {
-            // Otherwise, use your original ±15 day window
-            return parseInt(p[0]) === sYear && Math.abs(dDate - selectedDate) / 86400000 <= 15;
-        }
+        return parseInt(p[0]) === sYear;
     });
 
     // Re-sync the labels and historical averages
@@ -859,10 +844,10 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             liveRow.style.display = 'none';
         }
     }
-    renderWindowCharts(yearSlice, historicalAverages, sYear, windowLabels, rangeText);
+    renderWindowCharts(yearSlice, historicalAverages, sYear, windowLabels, rangeText, selectedDate);
 }
 
-function renderWindowCharts(yearSlice, histAverages, sYear, labels, rangeText) {
+function renderWindowCharts(yearSlice, histAverages, sYear, labels, rangeText, selectedDate) {
     const isF = document.getElementById('unitToggle').checked;
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
@@ -875,6 +860,13 @@ function renderWindowCharts(yearSlice, histAverages, sYear, labels, rangeText) {
         const mm = v / 10;
         return isF ? parseFloat((mm * 0.0393701).toFixed(2)) : parseFloat(mm.toFixed(1));
     };
+
+    // Compute ±15 day label window for initial visible range
+    const padDate = (d) => d.toISOString().slice(5, 10).replace('-', '/');
+    const rangeStart = new Date(selectedDate); rangeStart.setDate(rangeStart.getDate() - 15);
+    const rangeEnd   = new Date(selectedDate); rangeEnd.setDate(rangeEnd.getDate() + 15);
+    const xRangeStart = padDate(rangeStart);
+    const xRangeEnd   = padDate(rangeEnd);
 
     // Ribbon Math (using histAverages to match parameter name)
     const xDouble = labels.concat([...labels].reverse());
@@ -931,10 +923,12 @@ function renderWindowCharts(yearSlice, histAverages, sYear, labels, rangeText) {
         xaxis: { 
             tickangle: -45, 
             gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-            automargin: true 
+            automargin: true,
+            range: [xRangeStart, xRangeEnd],
+            rangeslider: { visible: true, thickness: 0.08 }
         },
         margin: { t: 60, b: 80, l: 50, r: 20 },
-        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.4 },
+        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.5 },
         hovermode: 'closest'
     };
 
