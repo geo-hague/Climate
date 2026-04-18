@@ -919,20 +919,47 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         { x: dates, y: histAverages.map(h => h.avgMin), name: 'Normal Minimum', mode: 'lines', line: {color:'#74b9ff', dash:'dot', width:1.5}, hovertemplate: 'Normal Min<br>%{x}: %{y:.1f}' + tempUnit + '<extra></extra>' }
     ];
 
+    // Compute temperature y-axis range from actual data + normals, with 10% padding
+    const allTempVals = [
+        ...tmaxData.filter(v => v !== null),
+        ...tminData.filter(v => v !== null),
+        ...histAverages.map(h => h.avgMax).filter(v => v !== null),
+        ...histAverages.map(h => h.avgMin).filter(v => v !== null)
+    ];
+    const tempMin = allTempVals.length ? Math.min(...allTempVals) : (isF ? -20 : -30);
+    const tempMax = allTempVals.length ? Math.max(...allTempVals) : (isF ? 120 : 50);
+    const tempPad = (tempMax - tempMin) * 0.10;
+    const yTempRange = [tempMin - tempPad, tempMax + tempPad];
+
+    const rangeselectorStyle = {
+        bgcolor: isDark ? '#2d2d2d' : '#f0f0f0',
+        activecolor: '#007bff',
+        bordercolor: isDark ? '#444' : '#ccc',
+        font: { color: isDark ? '#e0e0e0' : '#2d3436', size: 11 }
+    };
+
+    const rangeselectorButtons = [
+        { count: 1,  label: '1M',  step: 'month', stepmode: 'backward' },
+        { count: 3,  label: '3M',  step: 'month', stepmode: 'backward' },
+        { count: 6,  label: '6M',  step: 'month', stepmode: 'backward' },
+        { count: 1,  label: '1Y',  step: 'year',  stepmode: 'backward' },
+        {            label: 'All', step: 'all' }
+    ];
+
     const baseLayout = {
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
         font: { color: isDark ? '#e0e0e0' : '#636e72', family: 'Inter, sans-serif', size: 11 },
+        dragmode: 'pan',
         xaxis: {
             type: 'date',
             range: [viewStart, viewEnd],
-            tickformat: '%b %d',
-            nticks: 10,
             tickangle: -45,
             gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
             automargin: true,
-            rangeslider: { visible: false }
+            rangeslider: { visible: false },
+            rangeselector: { buttons: rangeselectorButtons, ...rangeselectorStyle, x: 0, y: 1.18 }
         },
-        margin: { t: 70, b: 80, l: 50, r: 20 },
+        margin: { t: 80, b: 80, l: 55, r: 20 },
         legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.45 },
         hovermode: 'closest',
         annotations: jan1Annotations
@@ -941,14 +968,14 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
     const plotConfig = {
         scrollZoom: true,
         displayModeBar: true,
-        modeBarButtonsToRemove: ['select2d','lasso2d','autoScale2d','resetScale2d','toImage'],
+        modeBarButtonsToRemove: ['select2d','lasso2d','autoScale2d','resetScale2d','toImage','zoomIn2d','zoomOut2d'],
         displaylogo: false
     };
 
     Plotly.react('windowTempDiv', tempTraces, {
         ...baseLayout,
         title: { text: `<b>${sYear} Temperature vs ${rangeText} Normals</b><br>${lastStation.name}, ${lastStation.state}`, x: 0.5, xanchor: 'center' },
-        yaxis: { title: tempUnit, gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+        yaxis: { title: tempUnit, range: yTempRange, gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
     }, plotConfig);
 
     // Precipitation
