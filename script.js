@@ -681,7 +681,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             y: dailyReferenceValues.tmin, 
             text: yearsMin, // Restores the year metadata
             type:'box', 
-            name:'Min', 
+            name:'Minimum', 
             boxpoints: 'all', 
             jitter: 0.5, 
             pointpos: -1.8, 
@@ -692,7 +692,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             y: dailyReferenceValues.tmax, 
             text: yearsMax, // Restores the year metadata
             type:'box', 
-            name:'Max', 
+            name:'Maximum', 
             boxpoints: 'all', 
             jitter: 0.5, 
             pointpos: 1.8, 
@@ -1006,7 +1006,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
     };
 
     const precipTitle = (total) =>
-        `<b>${sYear} Precipitation (Visible Total: ${total})</b><br>${lastStation.name}, ${lastStation.state}`;
+        `<b>${sYear} Precipitation (Total: ${total})</b><br>${lastStation.name}, ${lastStation.state}`;
 
     const initialTotal = calcVisiblePrecip(viewStart, viewEnd);
 
