@@ -635,6 +635,80 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
         `All-Time Record Minimum Temperature${allTimeMinRow ? yearSmall(fmtDate(allTimeMinRow.DATE)) : ''}`;
     document.getElementById('allTimeMin').textContent = allTimeMinRow ? convert(allTimeMinRow.TMIN / 10).toFixed(1) + unit : '--';
 
+    // YTD PRECIPITATION
+    // Cutoff: Jan 1 of selected year through selected month/day
+    const mdCutoff = `${String(mIdx).padStart(2,'0')}-${String(dReq).padStart(2,'0')}`;
+    const ytdCutoffISO = `${sYear}-${mdCutoff}`;
+
+    const ytdPrecipTotal = fullDataset
+        .filter(d => {
+            const p = d.DATE.split('-');
+            return parseInt(p[0]) === sYear && d.DATE.slice(5) <= mdCutoff;
+        })
+        .reduce((sum, d) => sum + convertPrecip(d.PRCP), 0);
+
+    // Average YTD through the same calendar date, across the selected period range
+    const rangeS = currentRange.start === 0 ? startYear : currentRange.start;
+    const rangeE = currentRange.end >= 9000 ? endYear : currentRange.end;
+
+    const ytdByYear = allYears
+        .filter(y => y >= rangeS && y <= rangeE)
+        .map(y => ({
+            year: y,
+            total: fullDataset
+                .filter(d => {
+                    const p = d.DATE.split('-');
+                    return parseInt(p[0]) === y && d.DATE.slice(5) <= mdCutoff;
+                })
+                .reduce((sum, d) => sum + convertPrecip(d.PRCP), 0)
+        }));
+
+    const avgYtdPrecip = ytdByYear.length
+        ? ytdByYear.reduce((s, r) => s + r.total, 0) / ytdByYear.length
+        : null;
+
+    const ytdDelta       = avgYtdPrecip !== null ? ytdPrecipTotal - avgYtdPrecip : null;
+    const ytdPctNormal   = (avgYtdPrecip !== null && avgYtdPrecip > 0) ? (ytdPrecipTotal / avgYtdPrecip) * 100 : null;
+    const ytdPctAnnual   = (avgYearPrecip !== null && avgYearPrecip > 0) ? (ytdPrecipTotal / avgYearPrecip) * 100 : null;
+
+    const deltaColor = ytdDelta === null ? 'var(--sub-text)'
+        : ytdDelta > 0.005 ? '#0984e3'    // surplus — blue
+        : ytdDelta < -0.005 ? '#d63031'   // deficit — red
+        : 'var(--sub-text)';
+
+    const deltaSign = ytdDelta !== null && ytdDelta > 0.005 ? '+' : '';
+
+    const ytdLabel = sYear === systemYear
+        ? `${sYear} Year-to-Date Precipitation`
+        : `${sYear} Precipitation through ${monthName} ${dReq}`;
+    const ytdAvgLabel = `Average through ${monthName} ${dReq} ${rangeHtml}`;
+
+    document.getElementById('ytdPrecipLabel').innerHTML = ytdLabel;
+    document.getElementById('ytdPrecip').textContent = fmtPrecip(ytdPrecipTotal);
+
+    document.getElementById('ytdAvgPrecipLabel').innerHTML = ytdAvgLabel;
+    document.getElementById('ytdAvgPrecip').textContent = avgYtdPrecip !== null ? fmtPrecip(avgYtdPrecip) : '--';
+
+    document.getElementById('ytdDeltaLabel').innerHTML =
+        `Year-to-Date Surplus / Deficit through ${monthName} ${dReq} ${rangeHtml}`;
+    const ytdDeltaEl = document.getElementById('ytdDelta');
+    ytdDeltaEl.textContent = ytdDelta !== null ? `${deltaSign}${fmtPrecip(ytdDelta)}` : '--';
+    ytdDeltaEl.style.color = deltaColor;
+
+    document.getElementById('ytdPctNormalLabel').innerHTML =
+        `Percent of Normal Year-to-Date through ${monthName} ${dReq} ${rangeHtml}`;
+    const ytdPctNormalEl = document.getElementById('ytdPctNormal');
+    ytdPctNormalEl.textContent = ytdPctNormal !== null ? `${ytdPctNormal.toFixed(0)}%` : '--';
+    ytdPctNormalEl.style.color = ytdPctNormal === null ? 'var(--sub-text)'
+        : ytdPctNormal >= 110 ? '#0984e3'
+        : ytdPctNormal <= 90  ? '#d63031'
+        : 'var(--sub-text)';
+
+    document.getElementById('ytdPctAnnualLabel').innerHTML =
+        `Year-to-Date as % of Average Annual Precipitation ${rangeHtml}`;
+    document.getElementById('ytdPctAnnual').textContent =
+        ytdPctAnnual !== null ? `${ytdPctAnnual.toFixed(0)}%` : '--';
+
 // 4. CURRENT 2026 MONTH CARDS (Only show if 2026 is selected)
     const currentSystemMonth = todayDate.getMonth() + 1; 
     const minCard2026 = document.getElementById('currMonthMin').parentElement;
