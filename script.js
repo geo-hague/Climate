@@ -526,6 +526,24 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     document.getElementById('recMonMin').textContent = recMonMinRow ? convert(recMonMinRow.tmin).toFixed(1) + unit : "--";
     document.getElementById('recMonMax').textContent = recMonMaxRow ? convert(recMonMaxRow.tmax).toFixed(1) + unit : "--";
 
+    // RECORD WARMEST LOW / COOLEST HIGH — all data, no period filter
+    const recDayMaxMinRow = allDayRows.reduce((rec, r) => r.tmin !== null && (rec === null || r.tmin > rec.tmin) ? r : rec, null);
+    const recDayMinMaxRow = allDayRows.reduce((rec, r) => r.tmax !== null && (rec === null || r.tmax < rec.tmax) ? r : rec, null);
+    const recMonMaxMinRow = rawMonthData.reduce((rec, r) => r.tmin !== null && (rec === null || r.tmin > rec.tmin) ? r : rec, null);
+    const recMonMinMaxRow = rawMonthData.reduce((rec, r) => r.tmax !== null && (rec === null || r.tmax < rec.tmax) ? r : rec, null);
+
+    document.getElementById('recDayMaxMinLabel').innerHTML = `${monthName} ${dReq} Record Warmest Low Temperature${recDayMaxMinRow ? yearSmall(`Set in ${recDayMaxMinRow.year}`) : ''}`;
+    document.getElementById('recDayMaxMin').textContent = recDayMaxMinRow ? convert(recDayMaxMinRow.tmin).toFixed(1) + unit : "--";
+
+    document.getElementById('recDayMinMaxLabel').innerHTML = `${monthName} ${dReq} Record Coolest High Temperature${recDayMinMaxRow ? yearSmall(`Set in ${recDayMinMaxRow.year}`) : ''}`;
+    document.getElementById('recDayMinMax').textContent = recDayMinMaxRow ? convert(recDayMinMaxRow.tmax).toFixed(1) + unit : "--";
+
+    document.getElementById('recMonMaxMinLabel').innerHTML = `${monthName} Record Warmest Low Temperature${recMonMaxMinRow ? yearSmall(`Set in ${recMonMaxMinRow.year} (${monthName} ${recMonMaxMinRow.day})`) : ''}`;
+    document.getElementById('recMonMaxMin').textContent = recMonMaxMinRow ? convert(recMonMaxMinRow.tmin).toFixed(1) + unit : "--";
+
+    document.getElementById('recMonMinMaxLabel').innerHTML = `${monthName} Record Coolest High Temperature${recMonMinMaxRow ? yearSmall(`Set in ${recMonMinMaxRow.year} (${monthName} ${recMonMinMaxRow.day})`) : ''}`;
+    document.getElementById('recMonMinMax').textContent = recMonMinMaxRow ? convert(recMonMinMaxRow.tmax).toFixed(1) + unit : "--";
+
     // PRECIPITATION TOTALS
     const precipUnit = isF ? "in" : "mm";
     const precipDecimals = isF ? 2 : 1;
@@ -708,6 +726,69 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
         `Year-to-Date as % of Average Annual Precipitation ${rangeHtml}`;
     document.getElementById('ytdPctAnnual').textContent =
         ytdPctAnnual !== null ? `${ytdPctAnnual.toFixed(0)}%` : '--';
+
+    // MONTH-TO-DATE PRECIPITATION
+    // Sum from the 1st of the selected month through the selected day
+    const mtdPrecipTotal = fullDataset
+        .filter(d => {
+            const p = d.DATE.split('-');
+            return parseInt(p[0]) === sYear
+                && parseInt(p[1]) === mIdx
+                && parseInt(p[2]) <= dReq;
+        })
+        .reduce((sum, d) => sum + convertPrecip(d.PRCP), 0);
+
+    // Average MTD through the same day-of-month across the selected period range
+    const mtdByYear = allYears
+        .filter(y => y >= ytdRangeS && y <= ytdRangeE)
+        .map(y => ({
+            year: y,
+            total: fullDataset
+                .filter(d => {
+                    const p = d.DATE.split('-');
+                    return parseInt(p[0]) === y
+                        && parseInt(p[1]) === mIdx
+                        && parseInt(p[2]) <= dReq;
+                })
+                .reduce((sum, d) => sum + convertPrecip(d.PRCP), 0)
+        }));
+
+    const avgMtdPrecip = mtdByYear.length
+        ? mtdByYear.reduce((s, r) => s + r.total, 0) / mtdByYear.length
+        : null;
+
+    const mtdDelta     = avgMtdPrecip !== null ? mtdPrecipTotal - avgMtdPrecip : null;
+    const mtdPctNormal = (avgMtdPrecip !== null && avgMtdPrecip > 0) ? (mtdPrecipTotal / avgMtdPrecip) * 100 : null;
+
+    const mtdDeltaColor = mtdDelta === null ? 'var(--sub-text)'
+        : mtdDelta > 0.005 ? '#0984e3'
+        : mtdDelta < -0.005 ? '#d63031'
+        : 'var(--sub-text)';
+    const mtdDeltaSign = mtdDelta !== null && mtdDelta > 0.005 ? '+' : '';
+
+    document.getElementById('mtdPrecipLabel').innerHTML =
+        `${monthName} 1–${dReq}, ${sYear} Precipitation`;
+    document.getElementById('mtdPrecip').textContent = fmtPrecip(mtdPrecipTotal);
+
+    document.getElementById('mtdAvgPrecipLabel').innerHTML =
+        `Average ${monthName} 1–${dReq} Precipitation ${rangeHtml}`;
+    document.getElementById('mtdAvgPrecip').textContent =
+        avgMtdPrecip !== null ? fmtPrecip(avgMtdPrecip) : '--';
+
+    document.getElementById('mtdDeltaLabel').innerHTML =
+        `${monthName} 1–${dReq} Surplus / Deficit ${rangeHtml}`;
+    const mtdDeltaEl = document.getElementById('mtdDelta');
+    mtdDeltaEl.textContent = mtdDelta !== null ? `${mtdDeltaSign}${fmtPrecip(mtdDelta)}` : '--';
+    mtdDeltaEl.style.color = mtdDeltaColor;
+
+    document.getElementById('mtdPctNormalLabel').innerHTML =
+        `Percent of Normal ${monthName} 1–${dReq} Precipitation ${rangeHtml}`;
+    const mtdPctNormalEl = document.getElementById('mtdPctNormal');
+    mtdPctNormalEl.textContent = mtdPctNormal !== null ? `${mtdPctNormal.toFixed(0)}%` : '--';
+    mtdPctNormalEl.style.color = mtdPctNormal === null ? 'var(--sub-text)'
+        : mtdPctNormal >= 110 ? '#0984e3'
+        : mtdPctNormal <= 90  ? '#d63031'
+        : 'var(--sub-text)';
 
 // 4. CURRENT 2026 MONTH CARDS (Only show if 2026 is selected)
     const currentSystemMonth = todayDate.getMonth() + 1; 
