@@ -648,11 +648,11 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
         .reduce((sum, d) => sum + convertPrecip(d.PRCP), 0);
 
     // Average YTD through the same calendar date, across the selected period range
-    const rangeS = currentRange.start === 0 ? startYear : currentRange.start;
-    const rangeE = currentRange.end >= 9000 ? endYear : currentRange.end;
+    const ytdRangeS = currentRange.start === 0 ? startYear : currentRange.start;
+    const ytdRangeE = currentRange.end >= 9000 ? endYear : currentRange.end;
 
     const ytdByYear = allYears
-        .filter(y => y >= rangeS && y <= rangeE)
+        .filter(y => y >= ytdRangeS && y <= ytdRangeE)
         .map(y => ({
             year: y,
             total: fullDataset
