@@ -166,6 +166,8 @@ legend.addTo(map);
       if (!lastStation) return;
       const statePath = (lastStation.state || 'UNK').toUpperCase();
       const filePath = `data/daily/${statePath}/${lastStation.station}.csv`;
+      document.getElementById('loadingSpinner').style.display = 'flex';
+      document.body.style.cursor = 'wait';
 
       Papa.parse(filePath, {
         download: true, 
@@ -195,6 +197,8 @@ legend.addTo(map);
           processAndPlot();
           document.getElementById('cardTabs').style.display = 'flex';
           document.getElementById('climatoWrap').style.display = 'block';
+          document.getElementById('loadingSpinner').style.display = 'none';
+          document.body.style.cursor = '';
         }
       });
     }
@@ -328,6 +332,8 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       this.classList.add('active');
       currentRange.start = parseInt(this.dataset.start);
       currentRange.end = parseInt(this.dataset.end);
+      document.getElementById('loadingSpinner').style.display = 'flex';
+      document.body.style.cursor = 'wait';
       processAndPlot();
     });
   });
@@ -1028,6 +1034,8 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     }
     renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);
     renderClimatograph(rangeText);
+    document.getElementById('loadingSpinner').style.display = 'none';
+    document.body.style.cursor = '';
 }
 
 function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, selectedDate) {
@@ -1261,6 +1269,14 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
 
     const traces = [
         {
+            x: monthLabels, y: avgPrecipByMonth,
+            type: 'bar',
+            name: 'Avg Monthly Precip',
+            marker: { color: 'rgba(9,132,227,0.55)', line: { width: 0 } },
+            yaxis: 'y2',
+            hovertemplate: '%{x}<br>Avg Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
+        },
+        {
             x: monthLabels, y: avgMaxByMonth,
             type: 'scatter', mode: 'lines+markers',
             name: 'Avg Monthly Max Temp',
@@ -1275,14 +1291,6 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             line: { color: '#74b9ff', width: 2.5 }, marker: { size: 6 },
             yaxis: 'y1',
             hovertemplate: '%{x}<br>Avg Min: %{y:.1f}' + tempUnit + '<extra></extra>'
-        },
-        {
-            x: monthLabels, y: avgPrecipByMonth,
-            type: 'bar',
-            name: 'Avg Monthly Precip',
-            marker: { color: 'rgba(9,132,227,0.55)', line: { width: 0 } },
-            yaxis: 'y2',
-            hovertemplate: '%{x}<br>Avg Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
         }
     ];
 
