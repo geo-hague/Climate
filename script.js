@@ -166,7 +166,7 @@ legend.addTo(map);
       if (!lastStation) return;
       const statePath = (lastStation.state || 'UNK').toUpperCase();
       const filePath = `data/daily/${statePath}/${lastStation.station}.csv`;
-      document.body.style.cursor = 'wait';
+      document.body.classList.add('is-loading');
 
       Papa.parse(filePath, {
         download: true, 
@@ -196,7 +196,10 @@ legend.addTo(map);
           processAndPlot();
           document.getElementById('cardTabs').style.display = 'flex';
           document.getElementById('climatoWrap').style.display = 'block';
-          document.body.style.cursor = '';
+          document.body.classList.remove('is-loading');
+        },
+        error: function() {
+          document.body.classList.remove('is-loading');
         }
       });
     }
@@ -330,10 +333,10 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       this.classList.add('active');
       currentRange.start = parseInt(this.dataset.start);
       currentRange.end = parseInt(this.dataset.end);
-      document.body.style.cursor = 'wait';
+      document.body.classList.add('is-loading');
       setTimeout(() => {
         processAndPlot();
-      }, 0);
+      }, 16);
     });
   });
 
@@ -1033,7 +1036,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     }
     renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);
     renderClimatograph(rangeText);
-    document.body.style.cursor = '';
+    document.body.classList.remove('is-loading');
 }
 
 function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, selectedDate) {

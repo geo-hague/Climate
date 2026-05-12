@@ -263,3 +263,6 @@ input:checked + .slider:before { transform: translateX(18px); }
     border-color: var(--primary);
     color: var(--primary);
 }
+
+body.is-loading,
+body.is-loading * { cursor: wait !important; }
