@@ -228,7 +228,7 @@ input:checked + .slider:before { transform: translateX(18px); }
 #boxDiv, #lineDiv { background: var(--card-bg); padding: 15px; border-radius: 20px; width: 46%; height: 400px; min-width: 380px; border: 1px solid var(--border); }
 .window-chart-wrap { width: 46%; min-width: 380px; display: flex; flex-direction: column; }
 
-#liveRow { display: none; margin-bottom: 30px; }
+#liveRow { margin-bottom: 30px; }
 
 #todayBtn.is-today {
     background-color: var(--primary);

@@ -1219,9 +1219,8 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
           if (el) Plotly.Plots.resize(el);
       });
   });
-});
 
-function renderClimatograph(rangeText) {
+  function renderClimatograph(rangeText) {
     if (!fullDataset || !lastStation) return;
     const isF = document.getElementById('unitToggle').checked;
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1245,8 +1244,6 @@ function renderClimatograph(rangeText) {
             const p = d.DATE.split('-');
             return parseInt(p[1]) === m && parseInt(p[0]) >= rangeS && parseInt(p[0]) <= rangeE;
         });
-
-        // Group by year to get monthly averages per year, then average those
         const yearMap = {};
         rows.forEach(r => {
             const y = parseInt(r.DATE.split('-')[0]);
@@ -1255,17 +1252,11 @@ function renderClimatograph(rangeText) {
             if (r.TMIN != null) yearMap[y].tmin.push(convert(r.TMIN / 10));
             if (r.PRCP != null) yearMap[y].prcp += convertPrecip(r.PRCP) ?? 0;
         });
-
         const years = Object.values(yearMap);
         const avg = arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : null;
-
-        const yearlyMaxAvgs  = years.map(y => avg(y.tmax)).filter(v => v !== null);
-        const yearlyMinAvgs  = years.map(y => avg(y.tmin)).filter(v => v !== null);
-        const yearlyPrecips  = years.map(y => y.prcp);
-
-        avgMaxByMonth.push(avg(yearlyMaxAvgs));
-        avgMinByMonth.push(avg(yearlyMinAvgs));
-        avgPrecipByMonth.push(avg(yearlyPrecips));
+        avgMaxByMonth.push(avg(years.map(y => avg(y.tmax)).filter(v => v !== null)));
+        avgMinByMonth.push(avg(years.map(y => avg(y.tmin)).filter(v => v !== null)));
+        avgPrecipByMonth.push(avg(years.map(y => y.prcp)));
     }
 
     const traces = [
@@ -1273,8 +1264,7 @@ function renderClimatograph(rangeText) {
             x: monthLabels, y: avgMaxByMonth,
             type: 'scatter', mode: 'lines+markers',
             name: 'Avg Monthly Max Temp',
-            line: { color: '#ff7675', width: 2.5 },
-            marker: { size: 6 },
+            line: { color: '#ff7675', width: 2.5 }, marker: { size: 6 },
             yaxis: 'y1',
             hovertemplate: '%{x}<br>Avg Max: %{y:.1f}' + tempUnit + '<extra></extra>'
         },
@@ -1282,8 +1272,7 @@ function renderClimatograph(rangeText) {
             x: monthLabels, y: avgMinByMonth,
             type: 'scatter', mode: 'lines+markers',
             name: 'Avg Monthly Min Temp',
-            line: { color: '#74b9ff', width: 2.5 },
-            marker: { size: 6 },
+            line: { color: '#74b9ff', width: 2.5 }, marker: { size: 6 },
             yaxis: 'y1',
             hovertemplate: '%{x}<br>Avg Min: %{y:.1f}' + tempUnit + '<extra></extra>'
         },
@@ -1314,9 +1303,7 @@ function renderClimatograph(rangeText) {
             title: precipUnit,
             overlaying: 'y', side: 'right',
             rangemode: 'nonnegative',
-            gridcolor: 'transparent',
-            zeroline: false,
-            showgrid: false
+            gridcolor: 'transparent', zeroline: false, showgrid: false
         },
         legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.15 },
         margin: { t: 70, b: 60, l: 55, r: 55 },
@@ -1324,4 +1311,6 @@ function renderClimatograph(rangeText) {
     };
 
     Plotly.react('climatoDiv', traces, layout, { displayModeBar: false, responsive: true });
-}
+  }
+
+});
