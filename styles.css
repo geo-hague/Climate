@@ -235,3 +235,31 @@ input:checked + .slider:before { transform: translateX(18px); }
     color: white;
     border-color: var(--primary);
 }
+
+#cardTabs {
+    display: none;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 auto 20px auto;
+}
+.card-tab {
+    padding: 10px 28px;
+    border: 1px solid var(--border);
+    border-radius: 25px;
+    background: var(--card-bg);
+    color: var(--sub-text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.card-tab.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+.card-tab:hover:not(.active) {
+    border-color: var(--primary);
+    color: var(--primary);
+}

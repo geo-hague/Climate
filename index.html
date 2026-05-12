@@ -51,7 +51,15 @@
   <button class="period-btn" data-start="0" data-end="9999">All Data</button>
 </div>
 
-<div class="stats-section" id="liveRow" style="margin-bottom: 30px;">
+<!-- TAB BUTTONS -->
+<div id="cardTabs">
+  <button class="card-tab active" data-tab="tempTab">🌡 Temperature</button>
+  <button class="card-tab" data-tab="precipTab">🌧 Precipitation</button>
+</div>
+
+<!-- TEMPERATURE TAB -->
+<div id="tempTab" class="tab-content">
+  <div class="stats-section" id="liveRow" style="margin-bottom: 30px;">
     <div class="stats-row">
         <div class="stat-card" style="border-bottom: 4px solid var(--min-color);">
             <span class="stat-label" id="liveMinLabel">Today's Observed Minimum Temperature</span>
@@ -64,76 +72,87 @@
             <span class="departure-info" id="liveMaxDep"></span>
         </div>
     </div>
+  </div>
+  <div class="stats-section">
+    <div class="stats-row">
+      <div class="stat-card min daily"><span class="stat-label" id="dayMinLabel">Average Minimum Temperature</span><span class="stat-value" id="avgMin">--</span></div>
+      <div class="stat-card max daily"><span class="stat-label" id="dayMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="avgMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="monMinLabel">Average Minimum Temperature</span><span class="stat-value" id="monMin">--</span></div>
+      <div class="stat-card max"><span class="stat-label" id="monMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="monMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="currMonthMinLabel">Average Minimum Temperature</span><span class="stat-value" id="currMonthMin">--</span></div>
+      <div class="stat-card max"><span class="stat-label" id="currMonthMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="currMonthMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min daily"><span class="stat-label" id="recDayMinLabel">Record Minimum Temperature</span><span class="stat-value" id="recDayMin">--</span></div>
+      <div class="stat-card max daily"><span class="stat-label" id="recDayMaxLabel">Record Maximum Temperature</span><span class="stat-value" id="recDayMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card max daily"><span class="stat-label" id="recDayMaxMinLabel">Record Warmest Low Temperature</span><span class="stat-value" id="recDayMaxMin">--</span></div>
+      <div class="stat-card min daily"><span class="stat-label" id="recDayMinMaxLabel">Record Coolest High Temperature</span><span class="stat-value" id="recDayMinMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="recMonMinLabel">Record Minimum Temperature</span><span class="stat-value" id="recMonMin">--</span></div>
+      <div class="stat-card max"><span class="stat-label" id="recMonMaxLabel">Record Maximum Temperature</span><span class="stat-value" id="recMonMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card max"><span class="stat-label" id="recMonMaxMinLabel">Record Warmest Low Temperature</span><span class="stat-value" id="recMonMaxMin">--</span></div>
+      <div class="stat-card min"><span class="stat-label" id="recMonMinMaxLabel">Record Coolest High Temperature</span><span class="stat-value" id="recMonMinMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="allTimeMinLabel">All-Time Record Minimum Temperature</span><span class="stat-value" id="allTimeMin">--</span></div>
+      <div class="stat-card max"><span class="stat-label" id="allTimeMaxLabel">All-Time Record Maximum Temperature</span><span class="stat-value" id="allTimeMax">--</span></div>
+    </div>
+  </div>
 </div>
 
-<div class="stats-section">
-  <div class="stats-row">
-    <div class="stat-card min daily"><span class="stat-label" id="dayMinLabel">Average Minimum Temperature</span><span class="stat-value" id="avgMin">--</span></div>
-    <div class="stat-card max daily"><span class="stat-label" id="dayMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="avgMax">--</span></div>
+<!-- PRECIPITATION TAB -->
+<div id="precipTab" class="tab-content" style="display:none;">
+  <div class="stats-section">
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipMonthTotalLabel">Monthly Total Precipitation</span><span class="stat-value" id="precipMonthTotal">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipYearTotalLabel">Annual Total Precipitation</span><span class="stat-value" id="precipYearTotal">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipAvgMonthLabel">Monthly Average Precipitation</span><span class="stat-value" id="precipAvgMonth">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipAvgYearLabel">Average Annual Precipitation</span><span class="stat-value" id="precipAvgYear">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecMonthMinLabel">Record Minimum Monthly Precipitation</span><span class="stat-value" id="precipRecMonthMin">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecMonthMaxLabel">Record Maximum Monthly Precipitation</span><span class="stat-value" id="precipRecMonthMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecYearMinLabel">Record Minimum Annual Precipitation</span><span class="stat-value" id="precipRecYearMin">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecYearMaxLabel">Record Maximum Annual Precipitation</span><span class="stat-value" id="precipRecYearMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdPrecipLabel">Year-to-Date Precipitation</span><span class="stat-value" id="ytdPrecip">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdAvgPrecipLabel">Average Year-to-Date Precipitation</span><span class="stat-value" id="ytdAvgPrecip">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdDeltaLabel">Year-to-Date Surplus / Deficit</span><span class="stat-value" id="ytdDelta">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdPctNormalLabel">Percent of Normal Year-to-Date</span><span class="stat-value" id="ytdPctNormal">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdPctAnnualLabel">Year-to-Date as % of Average Annual</span><span class="stat-value" id="ytdPctAnnual">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdPrecipLabel">Month-to-Date Precipitation</span><span class="stat-value" id="mtdPrecip">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdAvgPrecipLabel">Average Month-to-Date Precipitation</span><span class="stat-value" id="mtdAvgPrecip">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdDeltaLabel">Month-to-Date Surplus / Deficit</span><span class="stat-value" id="mtdDelta">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdPctNormalLabel">Percent of Normal Month-to-Date</span><span class="stat-value" id="mtdPctNormal">--</span></div>
+    </div>
   </div>
-  <div class="stats-row">
-    <div class="stat-card min"><span class="stat-label" id="monMinLabel">Average Minimum Temperature</span><span class="stat-value" id="monMin">--</span></div>
-    <div class="stat-card max"><span class="stat-label" id="monMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="monMax">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card min"><span class="stat-label" id="currMonthMinLabel">Average Minimum Temperature</span><span class="stat-value" id="currMonthMin">--</span></div>
-    <div class="stat-card max"><span class="stat-label" id="currMonthMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="currMonthMax">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card min daily"><span class="stat-label" id="recDayMinLabel">Record Minimum Temperature</span><span class="stat-value" id="recDayMin">--</span></div>
-    <div class="stat-card max daily"><span class="stat-label" id="recDayMaxLabel">Record Maximum Temperature</span><span class="stat-value" id="recDayMax">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card max daily"><span class="stat-label" id="recDayMaxMinLabel">Record Warmest Low Temperature</span><span class="stat-value" id="recDayMaxMin">--</span></div>
-    <div class="stat-card min daily"><span class="stat-label" id="recDayMinMaxLabel">Record Coolest High Temperature</span><span class="stat-value" id="recDayMinMax">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card min"><span class="stat-label" id="recMonMinLabel">Record Minimum Temperature</span><span class="stat-value" id="recMonMin">--</span></div>
-    <div class="stat-card max"><span class="stat-label" id="recMonMaxLabel">Record Maximum Temperature</span><span class="stat-value" id="recMonMax">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card max"><span class="stat-label" id="recMonMaxMinLabel">Record Warmest Low Temperature</span><span class="stat-value" id="recMonMaxMin">--</span></div>
-    <div class="stat-card min"><span class="stat-label" id="recMonMinMaxLabel">Record Coolest High Temperature</span><span class="stat-value" id="recMonMinMax">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card min"><span class="stat-label" id="allTimeMinLabel">All-Time Record Minimum Temperature</span><span class="stat-value" id="allTimeMin">--</span></div>
-    <div class="stat-card max"><span class="stat-label" id="allTimeMaxLabel">All-Time Record Maximum Temperature</span><span class="stat-value" id="allTimeMax">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipMonthTotalLabel">Monthly Total Precipitation</span><span class="stat-value" id="precipMonthTotal">--</span></div>
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipYearTotalLabel">Annual Total Precipitation</span><span class="stat-value" id="precipYearTotal">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipAvgMonthLabel">Monthly Average Precipitation</span><span class="stat-value" id="precipAvgMonth">--</span></div>
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipAvgYearLabel">Average Annual Precipitation</span><span class="stat-value" id="precipAvgYear">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecMonthMinLabel">Record Minimum Monthly Precipitation</span><span class="stat-value" id="precipRecMonthMin">--</span></div>
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecMonthMaxLabel">Record Maximum Monthly Precipitation</span><span class="stat-value" id="precipRecMonthMax">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecYearMinLabel">Record Minimum Annual Precipitation</span><span class="stat-value" id="precipRecYearMin">--</span></div>
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecYearMaxLabel">Record Maximum Annual Precipitation</span><span class="stat-value" id="precipRecYearMax">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdPrecipLabel">Year-to-Date Precipitation</span><span class="stat-value" id="ytdPrecip">--</span></div>
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdAvgPrecipLabel">Average Year-to-Date Precipitation</span><span class="stat-value" id="ytdAvgPrecip">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdDeltaLabel">Year-to-Date Surplus / Deficit</span><span class="stat-value" id="ytdDelta">--</span></div>
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdPctNormalLabel">Percent of Normal Year-to-Date</span><span class="stat-value" id="ytdPctNormal">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdPctAnnualLabel">Year-to-Date as % of Average Annual</span><span class="stat-value" id="ytdPctAnnual">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdPrecipLabel">Month-to-Date Precipitation</span><span class="stat-value" id="mtdPrecip">--</span></div>
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdAvgPrecipLabel">Average Month-to-Date Precipitation</span><span class="stat-value" id="mtdAvgPrecip">--</span></div>
-  </div>
-  <div class="stats-row">
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdDeltaLabel">Month-to-Date Surplus / Deficit</span><span class="stat-value" id="mtdDelta">--</span></div>
-    <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdPctNormalLabel">Percent of Normal Month-to-Date</span><span class="stat-value" id="mtdPctNormal">--</span></div>
-  </div>
+</div>
+
+<!-- CLIMATOGRAPH -->
+<div id="climatoWrap" style="width:92%; max-width:1200px; margin: 0 auto 25px auto; display:none;">
+  <div id="climatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 420px; border: 1px solid var(--border);"></div>
 </div>
 
 <div id="plots">

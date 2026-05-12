@@ -193,6 +193,8 @@ legend.addTo(map);
           `;
             
           processAndPlot();
+          document.getElementById('cardTabs').style.display = 'flex';
+          document.getElementById('climatoWrap').style.display = 'block';
         }
       });
     }
@@ -309,6 +311,15 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
 
       syncPeriodToYear(currentYear);
       processAndPlot(); // Refresh everything
+  });
+
+  document.querySelectorAll('.card-tab').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.card-tab').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+      document.getElementById(this.dataset.tab).style.display = 'block';
+    });
   });
 
   document.querySelectorAll('.period-btn').forEach(btn => {
@@ -1016,6 +1027,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
         }
     }
     renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);
+    renderClimatograph(rangeText);
 }
 
 function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, selectedDate) {
@@ -1201,10 +1213,115 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
 
   
   window.addEventListener('resize', () => { 
-      const charts = ['boxDiv', 'lineDiv', 'windowTempDiv', 'windowPrecipDiv'];
+      const charts = ['boxDiv', 'lineDiv', 'windowTempDiv', 'windowPrecipDiv', 'climatoDiv'];
       charts.forEach(id => {
           const el = document.getElementById(id);
           if (el) Plotly.Plots.resize(el);
       });
   });
 });
+
+function renderClimatograph(rangeText) {
+    if (!fullDataset || !lastStation) return;
+    const isF = document.getElementById('unitToggle').checked;
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const tempUnit = isF ? '°F' : '°C';
+    const precipUnit = isF ? 'in' : 'mm';
+    const convert = (v) => v == null ? null : (isF ? v * 9/5 + 32 : v);
+    const convertPrecip = (v) => {
+        if (v == null) return null;
+        const mm = v / 10;
+        return isF ? mm * 0.0393701 : mm;
+    };
+
+    let rangeS = currentRange.start === 0 ? 1900 : currentRange.start;
+    let rangeE = currentRange.end >= 9000 ? 2025 : currentRange.end;
+
+    const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const avgMaxByMonth = [], avgMinByMonth = [], avgPrecipByMonth = [];
+
+    for (let m = 1; m <= 12; m++) {
+        const rows = fullDataset.filter(d => {
+            const p = d.DATE.split('-');
+            return parseInt(p[1]) === m && parseInt(p[0]) >= rangeS && parseInt(p[0]) <= rangeE;
+        });
+
+        // Group by year to get monthly averages per year, then average those
+        const yearMap = {};
+        rows.forEach(r => {
+            const y = parseInt(r.DATE.split('-')[0]);
+            if (!yearMap[y]) yearMap[y] = { tmax: [], tmin: [], prcp: 0 };
+            if (r.TMAX != null) yearMap[y].tmax.push(convert(r.TMAX / 10));
+            if (r.TMIN != null) yearMap[y].tmin.push(convert(r.TMIN / 10));
+            if (r.PRCP != null) yearMap[y].prcp += convertPrecip(r.PRCP) ?? 0;
+        });
+
+        const years = Object.values(yearMap);
+        const avg = arr => arr.length ? arr.reduce((a,b) => a+b, 0) / arr.length : null;
+
+        const yearlyMaxAvgs  = years.map(y => avg(y.tmax)).filter(v => v !== null);
+        const yearlyMinAvgs  = years.map(y => avg(y.tmin)).filter(v => v !== null);
+        const yearlyPrecips  = years.map(y => y.prcp);
+
+        avgMaxByMonth.push(avg(yearlyMaxAvgs));
+        avgMinByMonth.push(avg(yearlyMinAvgs));
+        avgPrecipByMonth.push(avg(yearlyPrecips));
+    }
+
+    const traces = [
+        {
+            x: monthLabels, y: avgMaxByMonth,
+            type: 'scatter', mode: 'lines+markers',
+            name: 'Avg Monthly Max Temp',
+            line: { color: '#ff7675', width: 2.5 },
+            marker: { size: 6 },
+            yaxis: 'y1',
+            hovertemplate: '%{x}<br>Avg Max: %{y:.1f}' + tempUnit + '<extra></extra>'
+        },
+        {
+            x: monthLabels, y: avgMinByMonth,
+            type: 'scatter', mode: 'lines+markers',
+            name: 'Avg Monthly Min Temp',
+            line: { color: '#74b9ff', width: 2.5 },
+            marker: { size: 6 },
+            yaxis: 'y1',
+            hovertemplate: '%{x}<br>Avg Min: %{y:.1f}' + tempUnit + '<extra></extra>'
+        },
+        {
+            x: monthLabels, y: avgPrecipByMonth,
+            type: 'bar',
+            name: 'Avg Monthly Precip',
+            marker: { color: 'rgba(9,132,227,0.55)', line: { width: 0 } },
+            yaxis: 'y2',
+            hovertemplate: '%{x}<br>Avg Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
+        }
+    ];
+
+    const layout = {
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: isDark ? '#e0e0e0' : '#636e72', family: 'Inter, sans-serif', size: 11 },
+        title: {
+            text: `<b>Monthly Climate Normals (${rangeText})</b><br>${lastStation.name}, ${lastStation.state}`,
+            x: 0.5, xanchor: 'center'
+        },
+        xaxis: { gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' },
+        yaxis: {
+            title: tempUnit,
+            gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+            zeroline: false
+        },
+        yaxis2: {
+            title: precipUnit,
+            overlaying: 'y', side: 'right',
+            rangemode: 'nonnegative',
+            gridcolor: 'transparent',
+            zeroline: false,
+            showgrid: false
+        },
+        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.15 },
+        margin: { t: 70, b: 60, l: 55, r: 55 },
+        bargap: 0.2
+    };
+
+    Plotly.react('climatoDiv', traces, layout, { displayModeBar: false, responsive: true });
+}
