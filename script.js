@@ -166,7 +166,6 @@ legend.addTo(map);
       if (!lastStation) return;
       const statePath = (lastStation.state || 'UNK').toUpperCase();
       const filePath = `data/daily/${statePath}/${lastStation.station}.csv`;
-      document.getElementById('loadingSpinner').style.display = 'flex';
       document.body.style.cursor = 'wait';
 
       Papa.parse(filePath, {
@@ -197,7 +196,6 @@ legend.addTo(map);
           processAndPlot();
           document.getElementById('cardTabs').style.display = 'flex';
           document.getElementById('climatoWrap').style.display = 'block';
-          document.getElementById('loadingSpinner').style.display = 'none';
           document.body.style.cursor = '';
         }
       });
@@ -332,9 +330,10 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       this.classList.add('active');
       currentRange.start = parseInt(this.dataset.start);
       currentRange.end = parseInt(this.dataset.end);
-      document.getElementById('loadingSpinner').style.display = 'flex';
       document.body.style.cursor = 'wait';
-      processAndPlot();
+      setTimeout(() => {
+        processAndPlot();
+      }, 0);
     });
   });
 
@@ -1034,7 +1033,6 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     }
     renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);
     renderClimatograph(rangeText);
-    document.getElementById('loadingSpinner').style.display = 'none';
     document.body.style.cursor = '';
 }
 
@@ -1273,7 +1271,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             type: 'bar',
             name: 'Avg Monthly Precip',
             marker: { color: 'rgba(9,132,227,0.55)', line: { width: 0 } },
-            yaxis: 'y2',
+            yaxis: 'y',
             hovertemplate: '%{x}<br>Avg Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
         },
         {
@@ -1281,7 +1279,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             type: 'scatter', mode: 'lines+markers',
             name: 'Avg Monthly Max Temp',
             line: { color: '#ff7675', width: 2.5 }, marker: { size: 6 },
-            yaxis: 'y1',
+            yaxis: 'y2',
             hovertemplate: '%{x}<br>Avg Max: %{y:.1f}' + tempUnit + '<extra></extra>'
         },
         {
@@ -1289,7 +1287,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             type: 'scatter', mode: 'lines+markers',
             name: 'Avg Monthly Min Temp',
             line: { color: '#74b9ff', width: 2.5 }, marker: { size: 6 },
-            yaxis: 'y1',
+            yaxis: 'y2',
             hovertemplate: '%{x}<br>Avg Min: %{y:.1f}' + tempUnit + '<extra></extra>'
         }
     ];
@@ -1303,15 +1301,19 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         },
         xaxis: { gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' },
         yaxis: {
-            title: tempUnit,
-            gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
-            zeroline: false
+            title: precipUnit,
+            side: 'right',
+            rangemode: 'nonnegative',
+            gridcolor: 'transparent',
+            zeroline: false,
+            showgrid: false
         },
         yaxis2: {
-            title: precipUnit,
-            overlaying: 'y', side: 'right',
-            rangemode: 'nonnegative',
-            gridcolor: 'transparent', zeroline: false, showgrid: false
+            title: tempUnit,
+            overlaying: 'y',
+            side: 'left',
+            zeroline: false,
+            gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'
         },
         legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.15 },
         margin: { t: 70, b: 60, l: 55, r: 55 },
@@ -1319,6 +1321,8 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
     };
 
     Plotly.react('climatoDiv', traces, layout, { displayModeBar: false, responsive: true });
+    // Force resize after layout settles to fix half-render on first load
+    requestAnimationFrame(() => Plotly.Plots.resize('climatoDiv'));
   }
 
 });

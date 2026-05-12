@@ -230,25 +230,6 @@ input:checked + .slider:before { transform: translateX(18px); }
 
 #liveRow { margin-bottom: 30px; }
 
-#loadingSpinner {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin: 0 auto 20px auto;
-    color: var(--sub-text);
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-.spinner {
-    width: 18px; height: 18px;
-    border: 2px solid var(--border);
-    border-top-color: var(--primary);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
 #todayBtn.is-today {
     background-color: var(--primary);
     color: white;
