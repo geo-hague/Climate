@@ -19,10 +19,12 @@ document.addEventListener('DOMContentLoaded', function() {
   function doyToDateStr(doy) {
     return new Date(2023, 0, doy).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
   }
-  function medianFrostDate(thresholdF, season) {
+  function medianFrostDate(thresholdF, season, rangeS, rangeE) {
     if (!fullDataset) return null;
     const threshold = Math.round((thresholdF - 32) * 5 / 9 * 10);
-    const years = [...new Set(fullDataset.map(d => parseInt(d.DATE.split('-')[0])))].sort();
+    const years = [...new Set(fullDataset.map(d => parseInt(d.DATE.split('-')[0])))]
+        .filter(y => y >= rangeS && y <= rangeE)
+        .sort();
     const qualifying = [];
     let yearsWithData = 0;
     years.forEach(y => {
@@ -38,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (fallHits.length) qualifying.push(Math.min(...fallHits.map(d => dayOfYear(d.DATE))));
       }
     });
-    if (qualifying.length === 0) return yearsWithData >= 15 ? 'none' : null;
+    if (qualifying.length === 0) return yearsWithData >= 10 ? 'none' : null;
     if (qualifying.length < 5) return null;
     const sorted = [...qualifying].sort((a, b) => a - b);
     return doyToDateStr(sorted[Math.floor(sorted.length / 2)]);
@@ -1082,41 +1084,38 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             liveRow.style.display = 'none';
         }
     }
-    // FROST / FREEZE MEDIAN DATES — computed from full dataset, no period filter
+    // FROST / FREEZE MEDIAN DATES — respects selected period range
+    const frostRangeS = currentRange.start === 0 ? startYear : currentRange.start;
+    const frostRangeE = currentRange.end >= 9000 ? endYear : currentRange.end;
+
     const frostThresholds = [
-        { labelPre: 'Frost',      f: 36, lastId: 'lastFrost',      firstId: 'firstFrost',      lastLbl: 'lastFrostLabel',      firstLbl: 'firstFrostLabel'      },
-        { labelPre: 'Freeze',     f: 32, lastId: 'lastFreeze',     firstId: 'firstFreeze',     lastLbl: 'lastFreezeLabel',     firstLbl: 'firstFreezeLabel'     },
-        { labelPre: 'Hard Freeze',f: 28, lastId: 'lastHardFreeze', firstId: 'firstHardFreeze', lastLbl: 'lastHardFreezeLabel', firstLbl: 'firstHardFreezeLabel' },
+        { labelPre: 'Frost',       f: 36, lastId: 'lastFrost',      firstId: 'firstFrost',      lastLbl: 'lastFrostLabel',      firstLbl: 'firstFrostLabel'      },
+        { labelPre: 'Freeze',      f: 32, lastId: 'lastFreeze',     firstId: 'firstFreeze',     lastLbl: 'lastFreezeLabel',     firstLbl: 'firstFreezeLabel'     },
+        { labelPre: 'Hard Freeze', f: 28, lastId: 'lastHardFreeze', firstId: 'firstHardFreeze', lastLbl: 'lastHardFreezeLabel', firstLbl: 'firstHardFreezeLabel' },
     ];
     const frostUnitNote = (f) => {
-        const c = ((f - 32) * 5/9).toFixed(0);
-        return yearSmall(`≤${f}°F / ${c}°C · Median of all available years`);
+        const c = Math.round((f - 32) * 5/9);
+        return yearSmall(`≤${f}°F / ${c}°C`);
     };
-    const noFrostMsg = (type) => `No ${type.toLowerCase()} recorded at this station`;
+    const noFrostMsg = (type) => `No ${type.toLowerCase()} at this location`;
 
     frostThresholds.forEach(({ labelPre, f, lastId, firstId, lastLbl, firstLbl }) => {
-        const springResult = medianFrostDate(f, 'spring');
-        const fallResult   = medianFrostDate(f, 'fall');
+        const springResult = medianFrostDate(f, 'spring', frostRangeS, frostRangeE);
+        const fallResult   = medianFrostDate(f, 'fall',   frostRangeS, frostRangeE);
 
         document.getElementById(lastLbl).innerHTML =
-            `Average Last Spring ${labelPre} Date ${frostUnitNote(f)}`;
+            `Average Last Spring ${labelPre} Date ${frostUnitNote(f)} ${rangeHtml}`;
         document.getElementById(lastId).textContent =
             springResult === 'none' ? noFrostMsg(labelPre)
             : springResult === null ? '--'
             : springResult;
 
         document.getElementById(firstLbl).innerHTML =
-            `Average First Fall ${labelPre} Date ${frostUnitNote(f)}`;
+            `Average First Fall ${labelPre} Date ${frostUnitNote(f)} ${rangeHtml}`;
         document.getElementById(firstId).textContent =
             fallResult === 'none' ? noFrostMsg(labelPre)
             : fallResult === null ? '--'
             : fallResult;
-
-        // Shrink font for "no occurrence" messages
-        [lastId, firstId].forEach(id => {
-            const el = document.getElementById(id);
-            el.style.fontSize = el.textContent.startsWith('No') ? '0.85rem' : '';
-        });
     });
 
     renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);

@@ -266,7 +266,6 @@ input:checked + .slider:before { transform: translateX(18px); }
 
 /* Date-value cards are slightly smaller to fit month names */
 .stat-value.stat-date { font-size: 1.3rem; }
-
 /* Full-page loading overlay */
 #pageSpinner {
     display: none;
