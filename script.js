@@ -3,6 +3,47 @@ document.addEventListener('DOMContentLoaded', function() {
   let dailyReferenceValues = { tmin: [], tmax: [] };
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+  function showSpinner(msg) {
+    const el = document.getElementById('pageSpinner');
+    el.querySelector('.page-spinner-msg').textContent = msg || 'Loading…';
+    el.style.display = 'flex';
+  }
+  function hideSpinner() {
+    document.getElementById('pageSpinner').style.display = 'none';
+  }
+
+  function dayOfYear(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return Math.round((new Date(y, m-1, d) - new Date(y, 0, 1)) / 86400000) + 1;
+  }
+  function doyToDateStr(doy) {
+    return new Date(2023, 0, doy).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  }
+  function medianFrostDate(thresholdF, season) {
+    if (!fullDataset) return null;
+    const threshold = Math.round((thresholdF - 32) * 5 / 9 * 10);
+    const years = [...new Set(fullDataset.map(d => parseInt(d.DATE.split('-')[0])))].sort();
+    const qualifying = [];
+    let yearsWithData = 0;
+    years.forEach(y => {
+      const rows = fullDataset.filter(d => parseInt(d.DATE.split('-')[0]) === y && d.TMIN != null);
+      if (rows.length < 200) return;
+      yearsWithData++;
+      const hits = rows.filter(d => d.TMIN <= threshold);
+      if (season === 'spring') {
+        const springHits = hits.filter(d => parseInt(d.DATE.split('-')[1]) <= 6);
+        if (springHits.length) qualifying.push(Math.max(...springHits.map(d => dayOfYear(d.DATE))));
+      } else {
+        const fallHits = hits.filter(d => parseInt(d.DATE.split('-')[1]) >= 7);
+        if (fallHits.length) qualifying.push(Math.min(...fallHits.map(d => dayOfYear(d.DATE))));
+      }
+    });
+    if (qualifying.length === 0) return yearsWithData >= 15 ? 'none' : null;
+    if (qualifying.length < 5) return null;
+    const sorted = [...qualifying].sort((a, b) => a - b);
+    return doyToDateStr(sorted[Math.floor(sorted.length / 2)]);
+  }
+
   const map = L.map('map', { zoomSnap: 0.5 }).setView([35.5, -80], 7);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }).addTo(map);
   const markers = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 40 });
@@ -166,7 +207,7 @@ legend.addTo(map);
       if (!lastStation) return;
       const statePath = (lastStation.state || 'UNK').toUpperCase();
       const filePath = `data/daily/${statePath}/${lastStation.station}.csv`;
-      document.body.classList.add('is-loading');
+      showSpinner('Loading station data...');
 
       Papa.parse(filePath, {
         download: true, 
@@ -196,10 +237,10 @@ legend.addTo(map);
           processAndPlot();
           document.getElementById('cardTabs').style.display = 'flex';
           document.getElementById('climatoWrap').style.display = 'block';
-          document.body.classList.remove('is-loading');
+          hideSpinner();
         },
         error: function() {
-          document.body.classList.remove('is-loading');
+          hideSpinner();
         }
       });
     }
@@ -333,7 +374,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       this.classList.add('active');
       currentRange.start = parseInt(this.dataset.start);
       currentRange.end = parseInt(this.dataset.end);
-      document.body.classList.add('is-loading');
+      showSpinner("Recalculating normals...");
       setTimeout(() => {
         processAndPlot();
       }, 16);
@@ -1009,6 +1050,13 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
 
     if (isToday) {
         todayBtn.classList.add('is-today');
+        liveRow.style.display = 'flex';
+        document.getElementById('liveMinLabel').innerHTML = `Today's Observed / Forecast Minimum Temperature`;
+        document.getElementById('liveMaxLabel').innerHTML = `Today's Observed / Forecast Maximum Temperature`;
+        document.getElementById('liveMin').textContent = '…';
+        document.getElementById('liveMax').textContent = '…';
+        document.getElementById('liveMinDep').textContent = 'Fetching live data…';
+        document.getElementById('liveMaxDep').textContent = 'Fetching live data…';
         fetchLiveComparison(lastStation.lat, lastStation.lon, finalAvgMax, finalAvgMin);
     } else {
         todayBtn.classList.remove('is-today');
@@ -1034,9 +1082,46 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             liveRow.style.display = 'none';
         }
     }
+    // FROST / FREEZE MEDIAN DATES — computed from full dataset, no period filter
+    const frostThresholds = [
+        { labelPre: 'Frost',      f: 36, lastId: 'lastFrost',      firstId: 'firstFrost',      lastLbl: 'lastFrostLabel',      firstLbl: 'firstFrostLabel'      },
+        { labelPre: 'Freeze',     f: 32, lastId: 'lastFreeze',     firstId: 'firstFreeze',     lastLbl: 'lastFreezeLabel',     firstLbl: 'firstFreezeLabel'     },
+        { labelPre: 'Hard Freeze',f: 28, lastId: 'lastHardFreeze', firstId: 'firstHardFreeze', lastLbl: 'lastHardFreezeLabel', firstLbl: 'firstHardFreezeLabel' },
+    ];
+    const frostUnitNote = (f) => {
+        const c = ((f - 32) * 5/9).toFixed(0);
+        return yearSmall(`≤${f}°F / ${c}°C · Median of all available years`);
+    };
+    const noFrostMsg = (type) => `No ${type.toLowerCase()} recorded at this station`;
+
+    frostThresholds.forEach(({ labelPre, f, lastId, firstId, lastLbl, firstLbl }) => {
+        const springResult = medianFrostDate(f, 'spring');
+        const fallResult   = medianFrostDate(f, 'fall');
+
+        document.getElementById(lastLbl).innerHTML =
+            `Average Last Spring ${labelPre} Date ${frostUnitNote(f)}`;
+        document.getElementById(lastId).textContent =
+            springResult === 'none' ? noFrostMsg(labelPre)
+            : springResult === null ? '--'
+            : springResult;
+
+        document.getElementById(firstLbl).innerHTML =
+            `Average First Fall ${labelPre} Date ${frostUnitNote(f)}`;
+        document.getElementById(firstId).textContent =
+            fallResult === 'none' ? noFrostMsg(labelPre)
+            : fallResult === null ? '--'
+            : fallResult;
+
+        // Shrink font for "no occurrence" messages
+        [lastId, firstId].forEach(id => {
+            const el = document.getElementById(id);
+            el.style.fontSize = el.textContent.startsWith('No') ? '0.85rem' : '';
+        });
+    });
+
     renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);
     renderClimatograph(rangeText);
-    document.body.classList.remove('is-loading');
+    hideSpinner();
 }
 
 function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, selectedDate) {

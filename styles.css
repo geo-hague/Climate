@@ -264,5 +264,43 @@ input:checked + .slider:before { transform: translateX(18px); }
     color: var(--primary);
 }
 
-body.is-loading,
-body.is-loading * { cursor: wait !important; }
+/* Date-value cards are slightly smaller to fit month names */
+.stat-value.stat-date { font-size: 1.3rem; }
+
+/* Full-page loading overlay */
+#pageSpinner {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 99999;
+    align-items: center;
+    justify-content: center;
+}
+.page-spinner-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.25);
+}
+.page-spinner-ring {
+    width: 52px; height: 52px;
+    border: 5px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: page-spin 0.75s linear infinite;
+}
+.page-spinner-msg {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--sub-text);
+    letter-spacing: 0.3px;
+}
+@keyframes page-spin { to { transform: rotate(360deg); } }

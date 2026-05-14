@@ -106,6 +106,18 @@
       <div class="stat-card min"><span class="stat-label" id="allTimeMinLabel">All-Time Record Minimum Temperature</span><span class="stat-value" id="allTimeMin">--</span></div>
       <div class="stat-card max"><span class="stat-label" id="allTimeMaxLabel">All-Time Record Maximum Temperature</span><span class="stat-value" id="allTimeMax">--</span></div>
     </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="lastFrostLabel">Average Last Spring Frost Date</span><span class="stat-value stat-date" id="lastFrost">--</span></div>
+      <div class="stat-card min"><span class="stat-label" id="firstFrostLabel">Average First Fall Frost Date</span><span class="stat-value stat-date" id="firstFrost">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="lastFreezeLabel">Average Last Spring Freeze Date</span><span class="stat-value stat-date" id="lastFreeze">--</span></div>
+      <div class="stat-card min"><span class="stat-label" id="firstFreezeLabel">Average First Fall Freeze Date</span><span class="stat-value stat-date" id="firstFreeze">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="lastHardFreezeLabel">Average Last Spring Hard Freeze Date</span><span class="stat-value stat-date" id="lastHardFreeze">--</span></div>
+      <div class="stat-card min"><span class="stat-label" id="firstHardFreezeLabel">Average First Fall Hard Freeze Date</span><span class="stat-value stat-date" id="firstHardFreeze">--</span></div>
+    </div>
   </div>
 </div>
 
@@ -171,5 +183,12 @@
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 <script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
 <script src="script.js"></script>
+
+<div id="pageSpinner">
+  <div class="page-spinner-card">
+    <div class="page-spinner-ring"></div>
+    <span class="page-spinner-msg">Loading…</span>
+  </div>
+</div>
 </body>
 </html>
