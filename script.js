@@ -456,7 +456,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       }
   }
 
-  function updateDepartureBadge(id, current, normal, referenceValues) {
+  function updateDepartureBadge(id, current, normal, referenceValues, label = 'daily average') {
       const el = document.getElementById(id);
       if (normal === "--" || !referenceValues || referenceValues.length === 0) { el.textContent = ""; return; }
       
@@ -474,7 +474,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       if (sigma > 2) classification = (diffNum > 0 ? "Well Above" : "Well Below") + " Normal";
       else if (sigma > 1) classification = (diffNum > 0 ? "Above" : "Below") + " Normal";
 
-      const fullText = `${diffNum > 0 ? '+' : ''}${diffStr}° from daily average (${classification})`;
+      const fullText = `${diffNum > 0 ? '+' : ''}${diffStr}° from ${label} (${classification})`;
 
       if (diffNum > 0.05) {
           el.style.color = "var(--max-color)";
@@ -484,7 +484,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
           el.textContent = fullText;
       } else {
           el.style.color = "var(--sub-text)";
-          el.textContent = `Exactly at daily average (Normal)`;
+          el.textContent = `Exactly at ${label} (Normal)`;
       }
   }
 
@@ -518,6 +518,22 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     const monthName = monthNames[mIdx - 1];
     const systemYear = 2026; 
     const todayDate = new Date();
+    const currentSystemMonth = todayDate.getMonth() + 1;
+    const isCurrentPartialMonth = (sYear === systemYear && mIdx === currentSystemMonth);
+
+    const fmtDate = (dateStr) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return `${monthNames[m-1]} ${d}, ${y}`;
+    };
+
+    // Finds the latest DATE (YYYY-MM-DD strings sort correctly) among rows that have `field`
+    // populated; falls back to the latest date of any row if none have that field.
+    const latestDateInScope = (rows, field) => {
+        const withField = rows.filter(d => d[field] != null);
+        const use = withField.length ? withField : rows.filter(d => d.DATE);
+        if (!use.length) return null;
+        return use.reduce((latest, d) => (!latest || d.DATE > latest) ? d.DATE : latest, null);
+    };
 
     const getStdDev = (values) => {
         if (!values || values.length === 0) return 0;
@@ -733,18 +749,28 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     const allTimeMinRow = fullDataset.reduce((rec, r) => r.TMIN != null && (rec === null || r.TMIN < rec.TMIN) ? r : rec, null);
 
     const fmtPrecip = (v) => v !== null ? v.toFixed(precipDecimals) + ' ' + precipUnit : '--';
-    const fmtDate = (dateStr) => {
-        const [y, m, d] = dateStr.split('-').map(Number);
-        return `${monthNames[m-1]} ${d}, ${y}`;
-    };
+
+    // "Latest Data" tags — shown when the selected month/year is the current, still-in-progress one
+    let monthLatestTag = "";
+    if (isCurrentPartialMonth) {
+        const monthRowsSel = fullDataset.filter(d => { const p = d.DATE.split('-'); return parseInt(p[0]) === sYear && parseInt(p[1]) === mIdx; });
+        const latestMonthDate = latestDateInScope(monthRowsSel, 'PRCP');
+        if (latestMonthDate) monthLatestTag = yearSmall(`Latest Data: ${fmtDate(latestMonthDate)}`);
+    }
+    let yearLatestTag = "";
+    if (sYear === systemYear) {
+        const yearRowsSel = fullDataset.filter(d => parseInt(d.DATE.split('-')[0]) === sYear);
+        const latestYearDate = latestDateInScope(yearRowsSel, 'PRCP');
+        if (latestYearDate) yearLatestTag = yearSmall(`Latest Data: ${fmtDate(latestYearDate)}`);
+    }
 
     // Update precip cards
     document.getElementById('precipMonthTotalLabel').innerHTML =
-        `${monthName} ${sYear} Total Precipitation`;
+        `${monthName} ${sYear} Total Precipitation${monthLatestTag}`;
     document.getElementById('precipMonthTotal').textContent = fmtPrecip(monthPrecipTotal);
 
     document.getElementById('precipYearTotalLabel').innerHTML =
-        `${sYear} ${yearLabel} Total Precipitation`;
+        `${sYear} ${yearLabel} Total Precipitation${yearLatestTag}`;
     document.getElementById('precipYearTotal').textContent = fmtPrecip(yearPrecipTotal);
 
     document.getElementById('precipAvgMonthLabel').innerHTML =
@@ -921,29 +947,42 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
         : mtdPctNormal <= 90  ? '#d63031'
         : 'var(--sub-text)';
 
-// 4. CURRENT 2026 MONTH CARDS (Only show if 2026 is selected)
-    const currentSystemMonth = todayDate.getMonth() + 1; 
-    const minCard2026 = document.getElementById('currMonthMin').parentElement;
-    const maxCard2026 = document.getElementById('currMonthMax').parentElement;
-
-    // First check: Is the user actually looking at the current year (2026)?
-    if (sYear === systemYear && mIdx <= currentSystemMonth) {
-        minCard2026.style.display = 'block';
-        maxCard2026.style.display = 'block';
-        
-        const currYearData = rawMonthData.filter(d => d.year === systemYear);
-        const validDays = currYearData.filter(d => d.tmin !== null || d.tmax !== null).map(d => d.day);
-        let latestDateLabel = validDays.length > 0 ? `<br><span style="font-size:0.65rem; color:var(--sub-text); font-weight:400;">Latest Data: ${monthName} ${Math.max(...validDays)}, ${systemYear}</span>` : "";
-        
-        document.getElementById('currMonthMinLabel').innerHTML = `${monthName} ${systemYear} Average Minimum Temperature ${latestDateLabel}`;
-        document.getElementById('currMonthMaxLabel').innerHTML = `${monthName} ${systemYear} Average Maximum Temperature ${latestDateLabel}`;
-        document.getElementById('currMonthMin').textContent = getAvg(currYearData.map(r => convert(r.tmin)).filter(v => v !== null)) + unit;
-        document.getElementById('currMonthMax').textContent = getAvg(currYearData.map(r => convert(r.tmax)).filter(v => v !== null)) + unit;
-    } else {
-        // Hide them if we are looking at the past or the future
-        minCard2026.style.display = 'none';
-        maxCard2026.style.display = 'none';
+// 4. SELECTED MONTH ACTUAL AVERAGE — the selected year's average for the selected month,
+    // with a "Latest Data" tag when it's the current, still-in-progress month, and a departure
+    // badge comparing it against the climate-normal average for that calendar month.
+    const selMonthYearData = rawMonthData.filter(d => d.year === sYear);
+    const selValidDays = selMonthYearData.filter(d => d.tmin !== null || d.tmax !== null).map(d => d.day);
+    let selMonthLatestTag = "";
+    if (isCurrentPartialMonth && selValidDays.length > 0) {
+        selMonthLatestTag = `<br><span style="font-size:0.65rem; color:var(--sub-text); font-weight:400;">Latest Data: ${monthName} ${Math.max(...selValidDays)}, ${sYear}</span>`;
     }
+
+    const selMonthMinVals = selMonthYearData.map(r => convert(r.tmin)).filter(v => v !== null);
+    const selMonthMaxVals = selMonthYearData.map(r => convert(r.tmax)).filter(v => v !== null);
+    const selMonthMinAvg = selMonthMinVals.length ? selMonthMinVals.reduce((a, b) => a + b, 0) / selMonthMinVals.length : null;
+    const selMonthMaxAvg = selMonthMaxVals.length ? selMonthMaxVals.reduce((a, b) => a + b, 0) / selMonthMaxVals.length : null;
+
+    document.getElementById('currMonthMinLabel').innerHTML = `${monthName} ${sYear} Average Minimum Temperature ${selMonthLatestTag}`;
+    document.getElementById('currMonthMaxLabel').innerHTML = `${monthName} ${sYear} Average Maximum Temperature ${selMonthLatestTag}`;
+    document.getElementById('currMonthMin').textContent = selMonthMinAvg !== null ? selMonthMinAvg.toFixed(1) + unit : "--";
+    document.getElementById('currMonthMax').textContent = selMonthMaxAvg !== null ? selMonthMaxAvg.toFixed(1) + unit : "--";
+
+    // Reference distribution for the departure badge: one average per normals-period year for this calendar month
+    const monthlyYearGroups = {};
+    periodData.forEach(r => {
+        if (!monthlyYearGroups[r.year]) monthlyYearGroups[r.year] = { tmax: [], tmin: [] };
+        if (r.tmax !== null) monthlyYearGroups[r.year].tmax.push(convert(r.tmax));
+        if (r.tmin !== null) monthlyYearGroups[r.year].tmin.push(convert(r.tmin));
+    });
+    const monthlyYearAvgsMax = Object.values(monthlyYearGroups)
+        .map(g => g.tmax.length ? g.tmax.reduce((a, b) => a + b, 0) / g.tmax.length : null)
+        .filter(v => v !== null);
+    const monthlyYearAvgsMin = Object.values(monthlyYearGroups)
+        .map(g => g.tmin.length ? g.tmin.reduce((a, b) => a + b, 0) / g.tmin.length : null)
+        .filter(v => v !== null);
+
+    updateDepartureBadge('currMonthMinDep', selMonthMinAvg, document.getElementById('monMin').textContent, monthlyYearAvgsMin, 'monthly average');
+    updateDepartureBadge('currMonthMaxDep', selMonthMaxAvg, document.getElementById('monMax').textContent, monthlyYearAvgsMax, 'monthly average');
 
     // 5. BOX & LINE TREND PLOTS
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
