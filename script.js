@@ -542,6 +542,12 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     document.getElementById('dayMaxLabel').innerHTML = `${monthName} ${dReq} Average Maximum Temperature ${rangeHtml}`;
     document.getElementById('monMinLabel').innerHTML = `${monthName} Average Minimum Temperature ${rangeHtml}`;
     document.getElementById('monMaxLabel').innerHTML = `${monthName} Average Maximum Temperature ${rangeHtml}`;
+    document.getElementById('coldestMinDayLabel').innerHTML = `Day of Average Coldest Minimum Temperature ${rangeHtml}`;
+    document.getElementById('coldestMaxDayLabel').innerHTML = `Day of Average Coldest Maximum Temperature ${rangeHtml}`;
+    document.getElementById('warmestMinDayLabel').innerHTML = `Day of Average Warmest Minimum Temperature ${rangeHtml}`;
+    document.getElementById('warmestMaxDayLabel').innerHTML = `Day of Average Warmest Maximum Temperature ${rangeHtml}`;
+    document.getElementById('driestMonthLabel').innerHTML = `Driest Month (Average) ${rangeHtml}`;
+    document.getElementById('wettestMonthLabel').innerHTML = `Wettest Month (Average) ${rangeHtml}`;
 
 
     // 3. PROCESS DATA FOR CARDS AND BOX PLOTS
@@ -567,6 +573,46 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     document.getElementById('avgMin').textContent = finalAvgMin + unit;
     document.getElementById('monMax').textContent = getAvg(periodData.map(r => convert(r.tmax)).filter(v => v !== null)) + unit;
     document.getElementById('monMin').textContent = getAvg(periodData.map(r => convert(r.tmin)).filter(v => v !== null)) + unit;
+
+    // CLIMATOLOGICAL COLDEST/WARMEST DAY OF YEAR — average tmin/tmax per calendar day (MM-DD),
+    // across all years in the selected normals period, over the whole year (not just the selected month)
+    const dailyClimo = {};
+    fullDataset.forEach(d => {
+        if (!d.DATE) return;
+        const p = d.DATE.split('-');
+        const y = parseInt(p[0]);
+        if (y < startYear || y > endYear) return;
+        const md = `${p[1]}-${p[2]}`;
+        if (!dailyClimo[md]) dailyClimo[md] = { tmaxSum: 0, tmaxN: 0, tminSum: 0, tminN: 0 };
+        if (d.TMAX != null) { dailyClimo[md].tmaxSum += d.TMAX / 10; dailyClimo[md].tmaxN++; }
+        if (d.TMIN != null) { dailyClimo[md].tminSum += d.TMIN / 10; dailyClimo[md].tminN++; }
+    });
+
+    let coldestMinDay = null, coldestMaxDay = null, warmestMinDay = null, warmestMaxDay = null;
+    Object.keys(dailyClimo).forEach(md => {
+        const rec = dailyClimo[md];
+        if (rec.tminN > 0) {
+            const avg = rec.tminSum / rec.tminN;
+            if (!coldestMinDay || avg < coldestMinDay.avg) coldestMinDay = { md, avg };
+            if (!warmestMinDay || avg > warmestMinDay.avg) warmestMinDay = { md, avg };
+        }
+        if (rec.tmaxN > 0) {
+            const avg = rec.tmaxSum / rec.tmaxN;
+            if (!coldestMaxDay || avg < coldestMaxDay.avg) coldestMaxDay = { md, avg };
+            if (!warmestMaxDay || avg > warmestMaxDay.avg) warmestMaxDay = { md, avg };
+        }
+    });
+
+    const fmtMonthDay = (md) => {
+        const [mm, dd] = md.split('-').map(Number);
+        return `${monthNames[mm - 1]} ${dd}`;
+    };
+    const fmtClimoDay = (rec) => rec ? `${fmtMonthDay(rec.md)} (${convert(rec.avg).toFixed(1)}${unit})` : '--';
+
+    document.getElementById('coldestMinDay').textContent = fmtClimoDay(coldestMinDay);
+    document.getElementById('coldestMaxDay').textContent = fmtClimoDay(coldestMaxDay);
+    document.getElementById('warmestMinDay').textContent = fmtClimoDay(warmestMinDay);
+    document.getElementById('warmestMaxDay').textContent = fmtClimoDay(warmestMaxDay);
 
     // RECORD HIGH/LOW — uses ALL data (rawMonthData has no year filter)
     const allDayRows = rawMonthData.filter(d => d.day === dReq);
@@ -655,6 +701,25 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
         ? periodAnnualTotals.reduce((s, r) => s + r.total, 0) / periodAnnualTotals.length
         : null;
 
+    // Average precipitation by calendar month (period range) — used to find the wettest/driest normal month
+    const yearMonthPrecip = {};
+    fullDataset.forEach(d => {
+        if (!d.DATE) return;
+        const p = d.DATE.split('-');
+        const y = parseInt(p[0]), m = parseInt(p[1]);
+        if (y < startYear || y > endYear) return;
+        if (!yearMonthPrecip[y]) yearMonthPrecip[y] = Array(13).fill(0);
+        yearMonthPrecip[y][m] += convertPrecip(d.PRCP);
+    });
+    const yearMonthRows = Object.values(yearMonthPrecip);
+    let wettestMonth = null, driestMonth = null;
+    for (let m = 1; m <= 12; m++) {
+        if (yearMonthRows.length === 0) break;
+        const avg = yearMonthRows.reduce((s, arr) => s + arr[m], 0) / yearMonthRows.length;
+        if (!wettestMonth || avg > wettestMonth.avg) wettestMonth = { month: m, avg };
+        if (!driestMonth || avg < driestMonth.avg) driestMonth = { month: m, avg };
+    }
+
     // Record monthly precip (all years)
     const recMonthMaxPrecip = monthlyTotalsByYear.reduce((rec, r) => r.total > (rec?.total ?? -Infinity) ? r : rec, null);
     const recMonthMinPrecip = monthlyTotalsByYear.filter(r => r.year < systemYear).reduce((rec, r) => r.total < (rec?.total ?? Infinity) ? r : rec, null);
@@ -689,6 +754,10 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     document.getElementById('precipAvgYearLabel').innerHTML =
         `Average Annual Precipitation ${rangeHtml}`;
     document.getElementById('precipAvgYear').textContent = fmtPrecip(avgYearPrecip);
+
+    const fmtMonthPrecip = (rec) => rec ? `${monthNames[rec.month - 1]} (${fmtPrecip(rec.avg)})` : '--';
+    document.getElementById('wettestMonth').textContent = fmtMonthPrecip(wettestMonth);
+    document.getElementById('driestMonth').textContent = fmtMonthPrecip(driestMonth);
 
     document.getElementById('precipRecMonthMaxLabel').innerHTML =
         `${monthName} Record Maximum Precipitation${recMonthMaxPrecip ? yearSmall(`Set in ${recMonthMaxPrecip.year}`) : ''}`;
