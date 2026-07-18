@@ -74,19 +74,7 @@
     </div>
   </div>
   <div class="stats-section">
-    <!-- Selected month & day — data tied to the current selection -->
-    <div class="stats-row">
-      <div class="stat-card min daily">
-        <span class="stat-label" id="currMonthMinLabel">Selected Month Average Minimum Temperature</span>
-        <span class="stat-value" id="currMonthMin">--</span>
-        <span class="departure-info" id="currMonthMinDep"></span>
-      </div>
-      <div class="stat-card max daily">
-        <span class="stat-label" id="currMonthMaxLabel">Selected Month Average Maximum Temperature</span>
-        <span class="stat-value" id="currMonthMax">--</span>
-        <span class="departure-info" id="currMonthMaxDep"></span>
-      </div>
-    </div>
+    <!-- Selected day — data tied to the exact date selected -->
     <div class="stats-row">
       <div class="stat-card min daily"><span class="stat-label" id="dayMinLabel">Average Minimum Temperature</span><span class="stat-value" id="avgMin">--</span></div>
       <div class="stat-card max daily"><span class="stat-label" id="dayMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="avgMax">--</span></div>
@@ -100,11 +88,25 @@
       <div class="stat-card min daily"><span class="stat-label" id="recDayMinMaxLabel">Record Coolest High Temperature</span><span class="stat-value" id="recDayMinMax">--</span></div>
     </div>
 
-    <!-- Climate normals & records — period-wide, not tied to the selected day/year -->
+    <!-- Selected month — climate normal, then the actual average for the selected year -->
     <div class="stats-row">
       <div class="stat-card min"><span class="stat-label" id="monMinLabel">Average Minimum Temperature</span><span class="stat-value" id="monMin">--</span></div>
       <div class="stat-card max"><span class="stat-label" id="monMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="monMax">--</span></div>
     </div>
+    <div class="stats-row">
+      <div class="stat-card min daily">
+        <span class="stat-label" id="currMonthMinLabel">Selected Month Average Minimum Temperature</span>
+        <span class="stat-value" id="currMonthMin">--</span>
+        <span class="departure-info" id="currMonthMinDep"></span>
+      </div>
+      <div class="stat-card max daily">
+        <span class="stat-label" id="currMonthMaxLabel">Selected Month Average Maximum Temperature</span>
+        <span class="stat-value" id="currMonthMax">--</span>
+        <span class="departure-info" id="currMonthMaxDep"></span>
+      </div>
+    </div>
+
+    <!-- Climate normals & records — period-wide, not tied to the selected day/year -->
     <div class="stats-row">
       <div class="stat-card min"><span class="stat-label" id="recMonMinLabel">Record Minimum Temperature</span><span class="stat-value" id="recMonMin">--</span></div>
       <div class="stat-card max"><span class="stat-label" id="recMonMaxLabel">Record Maximum Temperature</span><span class="stat-value" id="recMonMax">--</span></div>
@@ -190,7 +192,10 @@
 
 <!-- CLIMATOGRAPH -->
 <div id="climatoWrap" style="width:92%; max-width:1200px; margin: 0 auto 25px auto; display:none;">
-  <div id="climatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 420px; border: 1px solid var(--border);"></div>
+  <div style="display:flex; flex-wrap:wrap; gap:20px; justify-content:center;">
+    <div id="climatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 420px; border: 1px solid var(--border); flex: 1 1 46%; min-width: 380px; box-sizing: border-box;"></div>
+    <div id="dailyClimatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 420px; border: 1px solid var(--border); flex: 1 1 46%; min-width: 380px; box-sizing: border-box;"></div>
+  </div>
 </div>
 
 <div id="plots">

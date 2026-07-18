@@ -1228,6 +1228,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
 
     renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);
     renderClimatograph(rangeText);
+    renderDailyClimatograph(rangeText);
     hideSpinner();
 }
 
@@ -1414,7 +1415,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
 
   
   window.addEventListener('resize', () => { 
-      const charts = ['boxDiv', 'lineDiv', 'windowTempDiv', 'windowPrecipDiv', 'climatoDiv'];
+      const charts = ['boxDiv', 'lineDiv', 'windowTempDiv', 'windowPrecipDiv', 'climatoDiv', 'dailyClimatoDiv'];
       charts.forEach(id => {
           const el = document.getElementById(id);
           if (el) Plotly.Plots.resize(el);
@@ -1518,6 +1519,129 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
     Plotly.react('climatoDiv', traces, layout, { displayModeBar: false, responsive: true });
     // Force resize after layout settles to fix half-render on first load
     requestAnimationFrame(() => Plotly.Plots.resize('climatoDiv'));
+  }
+
+  function renderDailyClimatograph(rangeText) {
+    if (!fullDataset || !lastStation) return;
+    const isF = document.getElementById('unitToggle').checked;
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const tempUnit = isF ? '°F' : '°C';
+    const precipUnit = isF ? 'in' : 'mm';
+    const convert = (v) => v == null ? null : (isF ? v * 9/5 + 32 : v);
+    const convertPrecip = (v) => {
+        if (v == null) return null;
+        const mm = v / 10;
+        return isF ? mm * 0.0393701 : mm;
+    };
+
+    let rangeS = currentRange.start === 0 ? 1900 : currentRange.start;
+    let rangeE = currentRange.end >= 9000 ? 2025 : currentRange.end;
+
+    // Ordered list of calendar dates for one reference leap year, so Feb 29 lines up in the right spot
+    const refYear = 2024;
+    const dates = [];
+    for (let i = 0; i < 366; i++) {
+        const d = new Date(refYear, 0, 1 + i);
+        if (d.getFullYear() !== refYear) break;
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        dates.push(`${refYear}-${mm}-${dd}`);
+    }
+
+    // Aggregate tmax/tmin/prcp by calendar day (MM-DD) across years in the selected normals period
+    const dayMap = {};
+    dates.forEach(iso => { dayMap[iso.slice(5)] = { tmax: [], tmin: [], prcp: [] }; });
+
+    fullDataset.forEach(d => {
+        if (!d.DATE) return;
+        const p = d.DATE.split('-');
+        const y = parseInt(p[0]);
+        if (y < rangeS || y > rangeE) return;
+        const md = `${p[1]}-${p[2]}`;
+        if (!dayMap[md]) return;
+        if (d.TMAX != null) dayMap[md].tmax.push(convert(d.TMAX / 10));
+        if (d.TMIN != null) dayMap[md].tmin.push(convert(d.TMIN / 10));
+        if (d.PRCP != null) dayMap[md].prcp.push(convertPrecip(d.PRCP));
+    });
+
+    const avg = arr => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+
+    const avgMaxByDay = dates.map(iso => avg(dayMap[iso.slice(5)].tmax));
+    const avgMinByDay = dates.map(iso => avg(dayMap[iso.slice(5)].tmin));
+    const avgPrecipByDay = dates.map(iso => avg(dayMap[iso.slice(5)].prcp));
+
+    // Cumulative precipitation across the year, built from the daily normal averages —
+    // reaches the average annual total by December 31
+    let running = 0;
+    const cumulativePrecip = avgPrecipByDay.map(v => {
+        running += (v ?? 0);
+        return parseFloat(running.toFixed(2));
+    });
+
+    const traces = [
+        {
+            x: dates, y: cumulativePrecip,
+            type: 'bar',
+            name: 'Cumulative Avg Precip',
+            marker: { color: 'rgba(9,132,227,0.55)', line: { width: 0 } },
+            yaxis: 'y',
+            hovertemplate: '%{x}<br>Cumulative Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
+        },
+        {
+            x: dates, y: avgMaxByDay,
+            type: 'scatter', mode: 'lines',
+            name: 'Avg Daily Max Temp',
+            line: { color: '#ff7675', width: 2 },
+            yaxis: 'y2',
+            connectgaps: true,
+            hovertemplate: '%{x}<br>Avg Max: %{y:.1f}' + tempUnit + '<extra></extra>'
+        },
+        {
+            x: dates, y: avgMinByDay,
+            type: 'scatter', mode: 'lines',
+            name: 'Avg Daily Min Temp',
+            line: { color: '#74b9ff', width: 2 },
+            yaxis: 'y2',
+            connectgaps: true,
+            hovertemplate: '%{x}<br>Avg Min: %{y:.1f}' + tempUnit + '<extra></extra>'
+        }
+    ];
+
+    const layout = {
+        paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: isDark ? '#e0e0e0' : '#636e72', family: 'Inter, sans-serif', size: 11 },
+        title: {
+            text: `<b>Daily Climate Normals (${rangeText})</b><br>${lastStation.name}, ${lastStation.state}`,
+            x: 0.5, xanchor: 'center'
+        },
+        xaxis: {
+            gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+            tickformat: '%b',
+            dtick: 'M1'
+        },
+        yaxis: {
+            title: precipUnit,
+            side: 'right',
+            rangemode: 'nonnegative',
+            gridcolor: 'transparent',
+            zeroline: false,
+            showgrid: false
+        },
+        yaxis2: {
+            title: tempUnit,
+            overlaying: 'y',
+            side: 'left',
+            zeroline: false,
+            gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'
+        },
+        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.15 },
+        margin: { t: 70, b: 60, l: 55, r: 55 },
+        bargap: 0
+    };
+
+    Plotly.react('dailyClimatoDiv', traces, layout, { displayModeBar: false, responsive: true });
+    // Force resize after layout settles to fix half-render on first load
+    requestAnimationFrame(() => Plotly.Plots.resize('dailyClimatoDiv'));
   }
 
 });
