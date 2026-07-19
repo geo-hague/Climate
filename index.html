@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Climate Analytics Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<h2 class="top-header">Daily Climate Analytics Dashboard</h2>
+<div id="stationHeader">Select a station marker on the map or search to begin.</div>
+
+<div id="map"></div>
+
+<div id="controls">
+    <div class="search-container">
+        <input type="text" id="stationSearch" placeholder="Search station name or ID...">
+        <span id="clearSearch">&times;</span>
+        <div id="searchResults"></div>
+    </div>
+    
+    <div class="dropdown-group">
+        <select id="month">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+        </select>
+        <select id="day"></select>
+        <select id="yearSelect"></select>
+        <button id="todayBtn">Today</button>
+    </div>
+
+    <div style="display:flex; align-items:center; border-left:1px solid var(--border); padding-left:15px; flex-shrink:0;">
+        <span id="labelC" class="unit-label" style="font-size:0.7rem; font-weight:700">°C</span>
+        <label class="switch"><input type="checkbox" id="unitToggle" checked><span class="slider"></span></label>
+        <span id="labelF" class="unit-label" style="font-size:0.7rem; font-weight:700">°F</span>
+    </div>
+</div>
+
+<div id="periodRibbon">
+  <button class="period-btn" data-start="1961" data-end="1990">1961-1990</button>
+  <button class="period-btn" data-start="1971" data-end="2000">1971-2000</button>
+  <button class="period-btn" data-start="1981" data-end="2010">1981-2010</button>
+  <button class="period-btn" data-start="1991" data-end="2020" id="defaultPeriod">1991-2020</button>
+  <button class="period-btn" data-start="0" data-end="9999">All Data</button>
+</div>
+
+<!-- TAB BUTTONS -->
+<div id="cardTabs">
+  <button class="card-tab active" data-tab="tempTab">🌡 Temperature</button>
+  <button class="card-tab" data-tab="precipTab">🌧 Precipitation</button>
+</div>
+
+<!-- TEMPERATURE TAB -->
+<div id="tempTab" class="tab-content">
+  <div class="stats-section" id="liveRow" style="margin-bottom: 30px;">
+    <div class="stats-row">
+        <div class="stat-card" style="border-bottom: 4px solid var(--min-color);">
+            <span class="stat-label" id="liveMinLabel">Today's Observed Minimum Temperature</span>
+            <span class="stat-value" id="liveMin">--</span>
+            <span class="departure-info" id="liveMinDep"></span>
+        </div>
+        <div class="stat-card" style="border-bottom: 4px solid var(--max-color);">
+            <span class="stat-label" id="liveMaxLabel">Today's Observed Maximum Temperature</span>
+            <span class="stat-value" id="liveMax">--</span>
+            <span class="departure-info" id="liveMaxDep"></span>
+        </div>
+    </div>
+  </div>
+  <div class="stats-section">
+    <!-- Selected day — data tied to the exact date selected -->
+    <div class="stats-row">
+      <div class="stat-card min daily"><span class="stat-label" id="dayMinLabel">Average Minimum Temperature</span><span class="stat-value" id="avgMin">--</span></div>
+      <div class="stat-card max daily"><span class="stat-label" id="dayMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="avgMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min daily"><span class="stat-label" id="recDayMinLabel">Record Minimum Temperature</span><span class="stat-value" id="recDayMin">--</span></div>
+      <div class="stat-card max daily"><span class="stat-label" id="recDayMaxLabel">Record Maximum Temperature</span><span class="stat-value" id="recDayMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card max daily"><span class="stat-label" id="recDayMaxMinLabel">Record Warmest Low Temperature</span><span class="stat-value" id="recDayMaxMin">--</span></div>
+      <div class="stat-card min daily"><span class="stat-label" id="recDayMinMaxLabel">Record Coolest High Temperature</span><span class="stat-value" id="recDayMinMax">--</span></div>
+    </div>
+
+    <!-- Selected month — climate normal, then the actual average for the selected year -->
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="monMinLabel">Average Minimum Temperature</span><span class="stat-value" id="monMin">--</span></div>
+      <div class="stat-card max"><span class="stat-label" id="monMaxLabel">Average Maximum Temperature</span><span class="stat-value" id="monMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min daily">
+        <span class="stat-label" id="currMonthMinLabel">Selected Month Average Minimum Temperature</span>
+        <span class="stat-value" id="currMonthMin">--</span>
+        <span class="departure-info" id="currMonthMinDep"></span>
+      </div>
+      <div class="stat-card max daily">
+        <span class="stat-label" id="currMonthMaxLabel">Selected Month Average Maximum Temperature</span>
+        <span class="stat-value" id="currMonthMax">--</span>
+        <span class="departure-info" id="currMonthMaxDep"></span>
+      </div>
+    </div>
+
+    <!-- Climate normals & records — period-wide, not tied to the selected day/year -->
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="recMonMinLabel">Record Minimum Temperature</span><span class="stat-value" id="recMonMin">--</span></div>
+      <div class="stat-card max"><span class="stat-label" id="recMonMaxLabel">Record Maximum Temperature</span><span class="stat-value" id="recMonMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card max"><span class="stat-label" id="recMonMaxMinLabel">Record Warmest Low Temperature</span><span class="stat-value" id="recMonMaxMin">--</span></div>
+      <div class="stat-card min"><span class="stat-label" id="recMonMinMaxLabel">Record Coolest High Temperature</span><span class="stat-value" id="recMonMinMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="allTimeMinLabel">All-Time Record Minimum Temperature</span><span class="stat-value" id="allTimeMin">--</span></div>
+      <div class="stat-card max"><span class="stat-label" id="allTimeMaxLabel">All-Time Record Maximum Temperature</span><span class="stat-value" id="allTimeMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="coldestMinDayLabel">Day of Average Coldest Minimum Temperature</span><span class="stat-value stat-date" id="coldestMinDay">--</span></div>
+      <div class="stat-card max"><span class="stat-label" id="coldestMaxDayLabel">Day of Average Coldest Maximum Temperature</span><span class="stat-value stat-date" id="coldestMaxDay">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="warmestMinDayLabel">Day of Average Warmest Minimum Temperature</span><span class="stat-value stat-date" id="warmestMinDay">--</span></div>
+      <div class="stat-card max"><span class="stat-label" id="warmestMaxDayLabel">Day of Average Warmest Maximum Temperature</span><span class="stat-value stat-date" id="warmestMaxDay">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="lastFrostLabel">Average Last Spring Frost Date</span><span class="stat-value stat-date" id="lastFrost">--</span></div>
+      <div class="stat-card min"><span class="stat-label" id="firstFrostLabel">Average First Fall Frost Date</span><span class="stat-value stat-date" id="firstFrost">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="lastFreezeLabel">Average Last Spring Freeze Date</span><span class="stat-value stat-date" id="lastFreeze">--</span></div>
+      <div class="stat-card min"><span class="stat-label" id="firstFreezeLabel">Average First Fall Freeze Date</span><span class="stat-value stat-date" id="firstFreeze">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card min"><span class="stat-label" id="lastHardFreezeLabel">Average Last Spring Hard Freeze Date</span><span class="stat-value stat-date" id="lastHardFreeze">--</span></div>
+      <div class="stat-card min"><span class="stat-label" id="firstHardFreezeLabel">Average First Fall Hard Freeze Date</span><span class="stat-value stat-date" id="firstHardFreeze">--</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- PRECIPITATION TAB -->
+<div id="precipTab" class="tab-content" style="display:none;">
+  <div class="stats-section">
+    <!-- Selected month & year — data tied to the current selection -->
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipMonthTotalLabel">Monthly Total Precipitation</span><span class="stat-value" id="precipMonthTotal">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipYearTotalLabel">Annual Total Precipitation</span><span class="stat-value" id="precipYearTotal">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdPrecipLabel">Month-to-Date Precipitation</span><span class="stat-value" id="mtdPrecip">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdAvgPrecipLabel">Average Month-to-Date Precipitation</span><span class="stat-value" id="mtdAvgPrecip">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdDeltaLabel">Month-to-Date Surplus / Deficit</span><span class="stat-value" id="mtdDelta">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="mtdPctNormalLabel">Percent of Normal Month-to-Date</span><span class="stat-value" id="mtdPctNormal">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdPrecipLabel">Year-to-Date Precipitation</span><span class="stat-value" id="ytdPrecip">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdAvgPrecipLabel">Average Year-to-Date Precipitation</span><span class="stat-value" id="ytdAvgPrecip">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdDeltaLabel">Year-to-Date Surplus / Deficit</span><span class="stat-value" id="ytdDelta">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdPctNormalLabel">Percent of Normal Year-to-Date</span><span class="stat-value" id="ytdPctNormal">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="ytdPctAnnualLabel">Year-to-Date as % of Average Annual</span><span class="stat-value" id="ytdPctAnnual">--</span></div>
+    </div>
+
+    <!-- Climate normals & records — period-wide, not tied to the selected month/year -->
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipAvgMonthLabel">Monthly Average Precipitation</span><span class="stat-value" id="precipAvgMonth">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipAvgYearLabel">Average Annual Precipitation</span><span class="stat-value" id="precipAvgYear">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="driestMonthLabel">Driest Month (Average)</span><span class="stat-value stat-date" id="driestMonth">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="wettestMonthLabel">Wettest Month (Average)</span><span class="stat-value stat-date" id="wettestMonth">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecMonthMinLabel">Record Minimum Monthly Precipitation</span><span class="stat-value" id="precipRecMonthMin">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecMonthMaxLabel">Record Maximum Monthly Precipitation</span><span class="stat-value" id="precipRecMonthMax">--</span></div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecYearMinLabel">Record Minimum Annual Precipitation</span><span class="stat-value" id="precipRecYearMin">--</span></div>
+      <div class="stat-card" style="border-bottom: 3px solid #0984e3;"><span class="stat-label" id="precipRecYearMaxLabel">Record Maximum Annual Precipitation</span><span class="stat-value" id="precipRecYearMax">--</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- CLIMATOGRAPH -->
+<div id="climatoWrap" style="width:92%; max-width:1200px; margin: 0 auto 25px auto; display:none;">
+  <div style="display:flex; flex-wrap:wrap; gap:20px; justify-content:center;">
+    <div id="climatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 420px; border: 1px solid var(--border); flex: 1 1 46%; min-width: 380px; box-sizing: border-box;"></div>
+    <div id="dailyClimatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 420px; border: 1px solid var(--border); flex: 1 1 46%; min-width: 380px; box-sizing: border-box;"></div>
+  </div>
+</div>
+
+<div id="plots">
+  <div id="boxDiv"></div>
+  <div id="lineDiv"></div>
+  <div class="window-chart-wrap">
+    <div id="windowTempDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; width: 100%; height: 480px; border: 1px solid var(--border); box-sizing: border-box;"></div>
+  </div>
+  <div class="window-chart-wrap">
+    <div id="windowPrecipDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; width: 100%; height: 480px; border: 1px solid var(--border); box-sizing: border-box;"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.24.2.min.js"></script>
+<script src="script.js"></script>
+
+<div id="pageSpinner">
+  <div class="page-spinner-card">
+    <div class="page-spinner-ring"></div>
+    <span class="page-spinner-msg">Loading…</span>
+  </div>
+</div>
+</body>
+</html>
