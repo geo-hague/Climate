@@ -2,7 +2,7 @@ name: Daily Climate Update
 
 on:
   schedule:
-    - cron: '0 8 * * *' # Runs daily at 8:00 UTC
+    - cron: '0 6 * * *' # Runs daily at 6:00 UTC
   workflow_dispatch:    # Lets you run it manually for testing
 
 jobs:
