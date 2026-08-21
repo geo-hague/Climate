@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
   let lastStation = null, fullDataset = null, allStations = [], currentRange = { start: 1991, end: 2020 };
   let dailyReferenceValues = { tmin: [], tmax: [] };
+  let threshUserEdited = false;
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   function showSpinner(msg) {
@@ -345,8 +346,23 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
 
   document.getElementById('unitToggle').addEventListener('change', () => { 
       updateToggleColors(); 
+      const isF = document.getElementById('unitToggle').checked;
+      const threshInput = document.getElementById('threshTemp');
+      const cur = parseFloat(threshInput.value);
+      if (!threshUserEdited) {
+          threshInput.value = isF ? 50 : 10;
+      } else if (!isNaN(cur)) {
+          threshInput.value = Math.round(isF ? (cur * 9/5 + 32) : ((cur - 32) * 5/9));
+      }
       processAndPlot(); 
   });
+
+  document.getElementById('threshTemp').addEventListener('input', () => {
+      threshUserEdited = true;
+      updateThresholdCard();
+  });
+  document.getElementById('threshCompare').addEventListener('change', updateThresholdCard);
+  document.getElementById('threshField').addEventListener('change', updateThresholdCard);
 
   document.getElementById('todayBtn').addEventListener('click', () => {
       const today = new Date();
@@ -1229,7 +1245,80 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);
     renderClimatograph(rangeText);
     renderDailyClimatograph(rangeText);
+    updateThresholdCard();
     hideSpinner();
+}
+
+function updateThresholdCard() {
+    if (!fullDataset) return;
+    const isF = document.getElementById('unitToggle').checked;
+    const unit = isF ? "°F" : "°C";
+    const convert = (v) => (v == null ? null : (isF ? (v * 9/5 + 32) : v));
+    const sYear = parseInt(document.getElementById('yearSelect').value);
+
+    const compare = document.getElementById('threshCompare').value; // 'above' | 'below'
+    const field = document.getElementById('threshField').value; // 'TMAX' | 'TMIN'
+    const fieldLabel = field === 'TMAX' ? 'Max Temp' : 'Min Temp';
+    const threshold = parseFloat(document.getElementById('threshTemp').value);
+
+    document.getElementById('threshUnitLabel').textContent = unit;
+
+    const countLabelEl = document.getElementById('threshCountLabel');
+    const countEl = document.getElementById('threshCount');
+    const normalLabelEl = document.getElementById('threshNormalLabel');
+    const normalEl = document.getElementById('threshNormal');
+    const depEl = document.getElementById('threshDep');
+
+    if (isNaN(threshold)) {
+        countEl.textContent = '--';
+        normalEl.textContent = '--';
+        depEl.textContent = '';
+        return;
+    }
+
+    const meetsCondition = (v) => compare === 'above' ? v > threshold : v < threshold;
+    const compareLabel = compare === 'above' ? 'Above' : 'Below';
+
+    // Count of qualifying days for the selected year
+    const yearRows = fullDataset.filter(d => d.DATE && parseInt(d.DATE.split('-')[0]) === sYear);
+    const yearVals = yearRows.map(d => convert(d[field] != null ? d[field] / 10 : null)).filter(v => v !== null);
+    const yearCount = yearVals.filter(meetsCondition).length;
+
+    // Normal — average qualifying-day count per year across the selected climate-normal period
+    const rangeS = currentRange.start === 0 ? 1900 : currentRange.start;
+    const rangeE = currentRange.end >= 9000 ? 2025 : currentRange.end;
+    const rangeText = currentRange.start === 0 ? 'All Data' : `${currentRange.start}-${currentRange.end}`;
+
+    const countsByYear = {};
+    fullDataset.forEach(d => {
+        if (!d.DATE) return;
+        const y = parseInt(d.DATE.split('-')[0]);
+        if (y < rangeS || y > rangeE) return;
+        const raw = d[field];
+        if (raw == null) return;
+        if (!(y in countsByYear)) countsByYear[y] = 0;
+        if (meetsCondition(convert(raw / 10))) countsByYear[y]++;
+    });
+    const normalCounts = Object.values(countsByYear);
+    const avgCount = normalCounts.length ? normalCounts.reduce((a, b) => a + b, 0) / normalCounts.length : null;
+
+    countLabelEl.textContent = `Days ${compareLabel} ${threshold}${unit} (${fieldLabel}) in ${sYear}`;
+    countEl.textContent = `${yearCount} days`;
+
+    normalLabelEl.textContent = `Average Days ${compareLabel} ${threshold}${unit} (${fieldLabel}) — ${rangeText}`;
+    normalEl.textContent = avgCount !== null ? `${avgCount.toFixed(1)} days` : '--';
+
+    if (avgCount === null || avgCount === 0) {
+        depEl.textContent = '';
+    } else {
+        const diff = yearCount - avgCount;
+        const pct = (yearCount / avgCount) * 100;
+        const sign = diff > 0 ? '+' : '';
+        depEl.textContent = `${sign}${diff.toFixed(1)} days vs. normal (${pct.toFixed(0)}% of normal)`;
+        if (diff > 0.05) depEl.style.color = 'var(--max-color)';
+        else if (diff < -0.05) depEl.style.color = 'var(--min-color)';
+        else depEl.style.color = 'var(--sub-text)';
+    }
 }
 
 function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, selectedDate) {

@@ -139,6 +139,35 @@
       <div class="stat-card min"><span class="stat-label" id="lastHardFreezeLabel">Average Last Spring Hard Freeze Date</span><span class="stat-value stat-date" id="lastHardFreeze">--</span></div>
       <div class="stat-card min"><span class="stat-label" id="firstHardFreezeLabel">Average First Fall Hard Freeze Date</span><span class="stat-value stat-date" id="firstHardFreeze">--</span></div>
     </div>
+
+    <!-- THRESHOLD DAY COUNTER -->
+    <div id="thresholdWrap">
+      <div class="threshold-title">🎯 Threshold Day Count</div>
+      <div id="thresholdControls">
+        <span class="threshold-label">Days</span>
+        <select id="threshCompare">
+          <option value="above">Above</option>
+          <option value="below">Below</option>
+        </select>
+        <input type="number" id="threshTemp" value="50" step="1">
+        <span class="threshold-label" id="threshUnitLabel">°F</span>
+        <select id="threshField">
+          <option value="TMAX">Max Temp</option>
+          <option value="TMIN">Min Temp</option>
+        </select>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card daily" style="border-bottom: 4px solid var(--primary);">
+          <span class="stat-label" id="threshCountLabel">Days Above 50°F in 2026</span>
+          <span class="stat-value" id="threshCount">--</span>
+        </div>
+        <div class="stat-card daily" style="border-bottom: 4px solid var(--sub-text);">
+          <span class="stat-label" id="threshNormalLabel">Average Days Above 50°F</span>
+          <span class="stat-value" id="threshNormal">--</span>
+          <span class="departure-info" id="threshDep"></span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
