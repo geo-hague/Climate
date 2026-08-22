@@ -13,6 +13,93 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('pageSpinner').style.display = 'none';
   }
 
+  // CHART FULLSCREEN TOGGLE — each chart frame can expand to fill the screen and back.
+  // Uses the native Fullscreen API where supported; falls back to a fixed-position, full-viewport
+  // overlay for browsers that don't support element fullscreen (notably iPhone Safari, which only
+  // supports fullscreen on <video>).
+  const ALL_CHART_IDS = ['boxDiv', 'lineDiv', 'windowTempDiv', 'windowPrecipDiv', 'climatoDiv', 'dailyClimatoDiv'];
+  let fallbackFrame = null;
+
+  function supportsNativeFs(el) {
+      return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen);
+  }
+  function requestFs(el) {
+      const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+      if (fn) fn.call(el);
+  }
+  function exitFs() {
+      const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if (fn) fn.call(document);
+  }
+  function currentFsElement() {
+      return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
+  }
+
+  function resizeAllCharts() {
+      setTimeout(() => {
+          ALL_CHART_IDS.forEach(id => {
+              if (document.getElementById(id) && window.Plotly) {
+                  try { Plotly.Plots.resize(id); } catch (err) { /* chart not yet drawn */ }
+              }
+          });
+      }, 60);
+  }
+
+  function updateFsButtonIcons() {
+      const active = currentFsElement() || fallbackFrame;
+      document.querySelectorAll('.chart-frame').forEach(frame => {
+          const btn = frame.querySelector('.chart-fs-btn');
+          if (!btn) return;
+          const isActive = frame === active;
+          btn.innerHTML = isActive ? '✕' : '⤢';
+          btn.title = isActive ? 'Exit Full Screen' : 'Full Screen';
+      });
+  }
+
+  function toggleChartFrame(frame) {
+      if (supportsNativeFs(frame)) {
+          if (currentFsElement() === frame) exitFs();
+          else requestFs(frame);
+          return; // icon update + resize handled by the fullscreenchange listener below
+      }
+      // Fallback path (e.g. iPhone Safari)
+      if (fallbackFrame === frame) {
+          frame.classList.remove('fs-fallback');
+          document.body.classList.remove('fs-fallback-active');
+          fallbackFrame = null;
+      } else {
+          if (fallbackFrame) fallbackFrame.classList.remove('fs-fallback');
+          frame.classList.add('fs-fallback');
+          document.body.classList.add('fs-fallback-active');
+          fallbackFrame = frame;
+      }
+      updateFsButtonIcons();
+      resizeAllCharts();
+  }
+
+  document.querySelectorAll('.chart-fs-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const frame = document.getElementById(btn.dataset.frame);
+          if (!frame) return;
+          toggleChartFrame(frame);
+      });
+  });
+
+  // Escape key closes the CSS-fallback overlay (native fullscreen already closes on Escape by itself)
+  document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && fallbackFrame) toggleChartFrame(fallbackFrame);
+  });
+
+  ['fullscreenchange', 'webkitfullscreenchange', 'msfullscreenchange'].forEach(evt => {
+      document.addEventListener(evt, () => {
+          updateFsButtonIcons();
+          // Plotly draws to fixed pixel dimensions, so every chart needs a resize once the
+          // fullscreen container has settled into its new size (whether entering or exiting).
+          resizeAllCharts();
+      });
+  });
+
   function dayOfYear(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
     return Math.round((new Date(y, m-1, d) - new Date(y, 0, 1)) / 86400000) + 1;
@@ -1603,17 +1690,19 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             rangemode: 'nonnegative',
             gridcolor: 'transparent',
             zeroline: false,
-            showgrid: false
+            showgrid: false,
+            automargin: true
         },
         yaxis2: {
             title: tempUnit,
             overlaying: 'y',
             side: 'left',
             zeroline: false,
-            gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'
+            gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+            automargin: true
         },
         legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.15 },
-        margin: { t: 70, b: 60, l: 55, r: 55 },
+        margin: { t: 70, b: 60, l: 60, r: 60 },
         bargap: 0.2
     };
 
@@ -1727,7 +1816,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             x: dates, y: actualCumulativePrecip,
             type: 'scatter', mode: 'lines',
             name: `${sYear} Cumulative Precip`,
-            line: { color: '#0652DD', width: 2, dash: 'dot' },
+            line: { color: '#08306b', width: 2.5 },
             yaxis: 'y',
             connectgaps: true,
             hovertemplate: '%{x}<br>' + sYear + ' Cumulative Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
@@ -1754,20 +1843,18 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             x: dates, y: actualMaxByDay,
             type: 'scatter', mode: 'lines',
             name: `${sYear} Daily Max Temp`,
-            line: { color: '#d63031', width: 1.3 },
+            line: { color: '#8b0000', width: 1.6 },
             yaxis: 'y2',
             connectgaps: true,
-            opacity: 0.85,
             hovertemplate: '%{x}<br>' + sYear + ' Max: %{y:.1f}' + tempUnit + '<extra></extra>'
         },
         {
             x: dates, y: actualMinByDay,
             type: 'scatter', mode: 'lines',
             name: `${sYear} Daily Min Temp`,
-            line: { color: '#0984e3', width: 1.3 },
+            line: { color: '#1a237e', width: 1.6 },
             yaxis: 'y2',
             connectgaps: true,
-            opacity: 0.85,
             hovertemplate: '%{x}<br>' + sYear + ' Min: %{y:.1f}' + tempUnit + '<extra></extra>'
         }
     ];
@@ -1790,17 +1877,19 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             rangemode: 'nonnegative',
             gridcolor: 'transparent',
             zeroline: false,
-            showgrid: false
+            showgrid: false,
+            automargin: true
         },
         yaxis2: {
             title: tempUnit,
             overlaying: 'y',
             side: 'left',
             zeroline: false,
-            gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'
+            gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+            automargin: true
         },
         legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.22 },
-        margin: { t: 70, b: 90, l: 55, r: 55 },
+        margin: { t: 70, b: 90, l: 60, r: 60 },
         bargap: 0
     };
 
