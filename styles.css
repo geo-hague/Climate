@@ -336,6 +336,13 @@ input:checked + .slider:before { transform: translateX(18px); }
     font-weight: 600;
     color: var(--sub-text);
 }
+.threshold-latest {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--sub-text);
+    text-align: center;
+    min-height: 1em;
+}
 #threshTemp {
     width: 70px;
     background: var(--bg);

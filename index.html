@@ -142,7 +142,7 @@
 
     <!-- THRESHOLD DAY COUNTER -->
     <div id="thresholdWrap">
-      <div class="threshold-title">🎯 Threshold Day Count</div>
+      <div class="threshold-title">Temperature Threshold Days</div>
       <div id="thresholdControls">
         <span class="threshold-label">Days</span>
         <select id="threshCompare">
@@ -156,6 +156,7 @@
           <option value="TMIN">Min Temp</option>
         </select>
       </div>
+      <div class="threshold-latest" id="threshLatestData"></div>
       <div class="stats-row">
         <div class="stat-card daily" style="border-bottom: 4px solid var(--primary);">
           <span class="stat-label" id="threshCountLabel">Days Above 50°F in 2026</span>
@@ -222,8 +223,8 @@
 <!-- CLIMATOGRAPH -->
 <div id="climatoWrap" style="width:92%; max-width:1200px; margin: 0 auto 25px auto; display:none;">
   <div style="display:flex; flex-wrap:wrap; gap:20px; justify-content:center;">
-    <div id="climatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 420px; border: 1px solid var(--border); flex: 1 1 46%; min-width: 380px; box-sizing: border-box;"></div>
-    <div id="dailyClimatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 420px; border: 1px solid var(--border); flex: 1 1 46%; min-width: 380px; box-sizing: border-box;"></div>
+    <div id="climatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 460px; border: 1px solid var(--border); flex: 1 1 46%; min-width: 380px; box-sizing: border-box;"></div>
+    <div id="dailyClimatoDiv" style="background: var(--card-bg); padding: 15px; border-radius: 20px; height: 460px; border: 1px solid var(--border); flex: 1 1 46%; min-width: 380px; box-sizing: border-box;"></div>
   </div>
 </div>
 

@@ -1244,7 +1244,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
 
     renderWindowCharts(windowRows, historicalAverages, sYear, windowDates, rangeText, selectedDate);
     renderClimatograph(rangeText);
-    renderDailyClimatograph(rangeText);
+    renderDailyClimatograph(rangeText, sYear);
     updateThresholdCard();
     hideSpinner();
 }
@@ -1268,6 +1268,18 @@ function updateThresholdCard() {
     const normalLabelEl = document.getElementById('threshNormalLabel');
     const normalEl = document.getElementById('threshNormal');
     const depEl = document.getElementById('threshDep');
+    const latestEl = document.getElementById('threshLatestData');
+
+    // Latest data date available for the selected year, so it's clear how much of the year is counted
+    const yearRowsAll = fullDataset.filter(d => d.DATE && parseInt(d.DATE.split('-')[0]) === sYear);
+    let latestDate = null;
+    yearRowsAll.forEach(d => { if (!latestDate || d.DATE > latestDate) latestDate = d.DATE; });
+    if (latestDate) {
+        const [ly, lm, ld] = latestDate.split('-').map(Number);
+        latestEl.textContent = `Latest Data for ${sYear}: ${monthNames[lm - 1]} ${ld}, ${ly}`;
+    } else {
+        latestEl.textContent = `No data available for ${sYear}`;
+    }
 
     if (isNaN(threshold)) {
         countEl.textContent = '--';
@@ -1610,7 +1622,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
     requestAnimationFrame(() => Plotly.Plots.resize('climatoDiv'));
   }
 
-  function renderDailyClimatograph(rangeText) {
+  function renderDailyClimatograph(rangeText, sYear) {
     if (!fullDataset || !lastStation) return;
     const isF = document.getElementById('unitToggle').checked;
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1667,6 +1679,41 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         return parseFloat(running.toFixed(2));
     });
 
+    // Actual data for the selected year — mapped onto the same MM-DD reference dates so it overlays
+    // the normals correctly. For a past, complete year this spans Jan 1 - Dec 31; for the current,
+    // still-in-progress year it naturally stops at the latest recorded date (year-to-date).
+    const yearTmaxByMD = {}, yearTminByMD = {}, yearPrcpByMD = {};
+    let latestYearMD = null;
+    fullDataset.forEach(d => {
+        if (!d.DATE) return;
+        const p = d.DATE.split('-');
+        if (parseInt(p[0]) !== sYear) return;
+        const md = `${p[1]}-${p[2]}`;
+        if (!latestYearMD || md > latestYearMD) latestYearMD = md;
+        if (d.TMAX != null) yearTmaxByMD[md] = convert(d.TMAX / 10);
+        if (d.TMIN != null) yearTminByMD[md] = convert(d.TMIN / 10);
+        if (d.PRCP != null) yearPrcpByMD[md] = convertPrecip(d.PRCP);
+    });
+
+    const actualMaxByDay = dates.map(iso => {
+        const md = iso.slice(5);
+        return md in yearTmaxByMD ? yearTmaxByMD[md] : null;
+    });
+    const actualMinByDay = dates.map(iso => {
+        const md = iso.slice(5);
+        return md in yearTminByMD ? yearTminByMD[md] : null;
+    });
+
+    // Actual cumulative precip for the selected year, treating missing daily readings as 0 so a gap
+    // doesn't break the running total, but stopping once we're past the last recorded date of the year
+    let actualRunning = 0;
+    const actualCumulativePrecip = dates.map(iso => {
+        const md = iso.slice(5);
+        if (!latestYearMD || md > latestYearMD) return null;
+        actualRunning += (yearPrcpByMD[md] || 0);
+        return parseFloat(actualRunning.toFixed(2));
+    });
+
     const traces = [
         {
             x: dates, y: cumulativePrecip,
@@ -1675,6 +1722,15 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             marker: { color: 'rgba(9,132,227,0.55)', line: { width: 0 } },
             yaxis: 'y',
             hovertemplate: '%{x}<br>Cumulative Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
+        },
+        {
+            x: dates, y: actualCumulativePrecip,
+            type: 'scatter', mode: 'lines',
+            name: `${sYear} Cumulative Precip`,
+            line: { color: '#0652DD', width: 2, dash: 'dot' },
+            yaxis: 'y',
+            connectgaps: true,
+            hovertemplate: '%{x}<br>' + sYear + ' Cumulative Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
         },
         {
             x: dates, y: avgMaxByDay,
@@ -1693,6 +1749,26 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             yaxis: 'y2',
             connectgaps: true,
             hovertemplate: '%{x}<br>Avg Min: %{y:.1f}' + tempUnit + '<extra></extra>'
+        },
+        {
+            x: dates, y: actualMaxByDay,
+            type: 'scatter', mode: 'lines',
+            name: `${sYear} Daily Max Temp`,
+            line: { color: '#d63031', width: 1.3 },
+            yaxis: 'y2',
+            connectgaps: true,
+            opacity: 0.85,
+            hovertemplate: '%{x}<br>' + sYear + ' Max: %{y:.1f}' + tempUnit + '<extra></extra>'
+        },
+        {
+            x: dates, y: actualMinByDay,
+            type: 'scatter', mode: 'lines',
+            name: `${sYear} Daily Min Temp`,
+            line: { color: '#0984e3', width: 1.3 },
+            yaxis: 'y2',
+            connectgaps: true,
+            opacity: 0.85,
+            hovertemplate: '%{x}<br>' + sYear + ' Min: %{y:.1f}' + tempUnit + '<extra></extra>'
         }
     ];
 
@@ -1700,7 +1776,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
         font: { color: isDark ? '#e0e0e0' : '#636e72', family: 'Inter, sans-serif', size: 11 },
         title: {
-            text: `<b>Daily Climate Normals (${rangeText})</b><br>${lastStation.name}, ${lastStation.state}`,
+            text: `<b>Daily Climate Normals vs ${sYear}</b><br>${lastStation.name}, ${lastStation.state} (${rangeText})`,
             x: 0.5, xanchor: 'center'
         },
         xaxis: {
@@ -1723,8 +1799,8 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             zeroline: false,
             gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'
         },
-        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.15 },
-        margin: { t: 70, b: 60, l: 55, r: 55 },
+        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.22 },
+        margin: { t: 70, b: 90, l: 55, r: 55 },
         bargap: 0
     };
 
