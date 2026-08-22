@@ -36,13 +36,18 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function resizeAllCharts() {
-      setTimeout(() => {
+      const doResize = () => {
           ALL_CHART_IDS.forEach(id => {
               if (document.getElementById(id) && window.Plotly) {
                   try { Plotly.Plots.resize(id); } catch (err) { /* chart not yet drawn */ }
               }
           });
-      }, 60);
+      };
+      // Wait for the browser to finish laying out the fullscreen container before measuring it —
+      // a fixed setTimeout can fire mid-transition on some browsers, leaving Plotly's SVG sized
+      // to a stale (small) container height.
+      requestAnimationFrame(() => requestAnimationFrame(doResize));
+      setTimeout(doResize, 300); // safety net for browsers that animate the fullscreen transition
   }
 
   function updateFsButtonIcons() {

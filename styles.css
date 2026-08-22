@@ -258,11 +258,11 @@ input:checked + .slider:before { transform: translateX(18px); }
 }
 .chart-frame:fullscreen,
 .chart-frame:-webkit-full-screen {
+    display: block;
     width: 100vw;
     height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    flex: none !important;
+    min-width: 0 !important;
     background: var(--bg);
     padding: 24px;
     box-sizing: border-box;
@@ -280,19 +280,19 @@ input:checked + .slider:before { transform: translateX(18px); }
 
 /* Fallback for browsers without element Fullscreen API support (notably iPhone Safari) */
 .chart-frame.fs-fallback {
+    display: block;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
+    flex: none !important;
+    min-width: 0 !important;
     z-index: 99999;
     margin: 0 !important;
     background: var(--bg);
     padding: 20px;
     box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 .chart-frame.fs-fallback > div[id] {
     width: 100% !important;
