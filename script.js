@@ -38,16 +38,26 @@ document.addEventListener('DOMContentLoaded', function() {
   function resizeAllCharts() {
       const doResize = () => {
           ALL_CHART_IDS.forEach(id => {
-              if (document.getElementById(id) && window.Plotly) {
-                  try { Plotly.Plots.resize(id); } catch (err) { /* chart not yet drawn */ }
-              }
+              const el = document.getElementById(id);
+              if (!el || !window.Plotly) return;
+              const rect = el.getBoundingClientRect();
+              if (rect.width < 10 || rect.height < 10) return; // not visible / not laid out yet
+              try {
+                  // Explicitly force Plotly to the container's exact measured size rather than
+                  // relying on its own auto-detection, which can be unreliable for fixed-position
+                  // / fullscreen containers.
+                  Plotly.relayout(id, { width: rect.width, height: rect.height });
+              } catch (err) { /* chart not yet drawn */ }
           });
       };
       // Wait for the browser to finish laying out the fullscreen container before measuring it —
       // a fixed setTimeout can fire mid-transition on some browsers, leaving Plotly's SVG sized
-      // to a stale (small) container height.
+      // to a stale (small) container height. Retry a few times to also cover browsers that
+      // animate the native fullscreen transition over a few hundred ms.
       requestAnimationFrame(() => requestAnimationFrame(doResize));
-      setTimeout(doResize, 300); // safety net for browsers that animate the fullscreen transition
+      setTimeout(doResize, 150);
+      setTimeout(doResize, 400);
+      setTimeout(doResize, 700);
   }
 
   function updateFsButtonIcons() {
@@ -1688,7 +1698,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             text: `<b>Monthly Climate Normals (${rangeText})</b><br>${lastStation.name}, ${lastStation.state}`,
             x: 0.5, xanchor: 'center'
         },
-        xaxis: { gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)' },
+        xaxis: { gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', automargin: true },
         yaxis: {
             title: precipUnit,
             side: 'right',
@@ -1706,8 +1716,8 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
             automargin: true
         },
-        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.15 },
-        margin: { t: 70, b: 60, l: 60, r: 60 },
+        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.18, font: { size: 10 } },
+        margin: { t: 70, b: 80, l: 65, r: 65 },
         bargap: 0.2
     };
 
@@ -1812,7 +1822,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         {
             x: dates, y: cumulativePrecip,
             type: 'bar',
-            name: 'Cumulative Avg Precip',
+            name: 'Avg Cumulative Precip',
             marker: { color: 'rgba(9,132,227,0.55)', line: { width: 0 } },
             yaxis: 'y',
             hovertemplate: '%{x}<br>Cumulative Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
@@ -1820,7 +1830,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         {
             x: dates, y: actualCumulativePrecip,
             type: 'scatter', mode: 'lines',
-            name: `${sYear} Cumulative Precip`,
+            name: `${sYear} Precip`,
             line: { color: '#08306b', width: 2.5 },
             yaxis: 'y',
             connectgaps: true,
@@ -1829,7 +1839,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         {
             x: dates, y: avgMaxByDay,
             type: 'scatter', mode: 'lines',
-            name: 'Avg Daily Max Temp',
+            name: 'Avg Max Temp',
             line: { color: '#ff7675', width: 2 },
             yaxis: 'y2',
             connectgaps: true,
@@ -1838,7 +1848,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         {
             x: dates, y: avgMinByDay,
             type: 'scatter', mode: 'lines',
-            name: 'Avg Daily Min Temp',
+            name: 'Avg Min Temp',
             line: { color: '#74b9ff', width: 2 },
             yaxis: 'y2',
             connectgaps: true,
@@ -1847,7 +1857,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         {
             x: dates, y: actualMaxByDay,
             type: 'scatter', mode: 'lines',
-            name: `${sYear} Daily Max Temp`,
+            name: `${sYear} Max Temp`,
             line: { color: '#8b0000', width: 1.6 },
             yaxis: 'y2',
             connectgaps: true,
@@ -1856,7 +1866,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         {
             x: dates, y: actualMinByDay,
             type: 'scatter', mode: 'lines',
-            name: `${sYear} Daily Min Temp`,
+            name: `${sYear} Min Temp`,
             line: { color: '#1a237e', width: 1.6 },
             yaxis: 'y2',
             connectgaps: true,
@@ -1874,7 +1884,8 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         xaxis: {
             gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
             tickformat: '%b',
-            dtick: 'M1'
+            dtick: 'M1',
+            automargin: true
         },
         yaxis: {
             title: precipUnit,
@@ -1893,8 +1904,8 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             gridcolor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
             automargin: true
         },
-        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.22 },
-        margin: { t: 70, b: 90, l: 60, r: 60 },
+        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: -0.24, font: { size: 9.5 } },
+        margin: { t: 70, b: 100, l: 65, r: 65 },
         bargap: 0
     };
 
