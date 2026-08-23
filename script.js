@@ -25,7 +25,14 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   function requestFs(el) {
       const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-      if (fn) fn.call(el);
+      if (!fn) return Promise.reject(new Error('Fullscreen API not available'));
+      try {
+          const result = fn.call(el);
+          // Older prefixed implementations don't return a Promise — normalize to one either way.
+          return (result && typeof result.then === 'function') ? result : Promise.resolve();
+      } catch (err) {
+          return Promise.reject(err);
+      }
   }
   function exitFs() {
       const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
@@ -71,25 +78,36 @@ document.addEventListener('DOMContentLoaded', function() {
       });
   }
 
-  function toggleChartFrame(frame) {
-      if (supportsNativeFs(frame)) {
-          if (currentFsElement() === frame) exitFs();
-          else requestFs(frame);
-          return; // icon update + resize handled by the fullscreenchange listener below
-      }
-      // Fallback path (e.g. iPhone Safari)
-      if (fallbackFrame === frame) {
-          frame.classList.remove('fs-fallback');
-          document.body.classList.remove('fs-fallback-active');
-          fallbackFrame = null;
-      } else {
-          if (fallbackFrame) fallbackFrame.classList.remove('fs-fallback');
-          frame.classList.add('fs-fallback');
-          document.body.classList.add('fs-fallback-active');
-          fallbackFrame = frame;
-      }
+  function activateFallback(frame) {
+      if (fallbackFrame) fallbackFrame.classList.remove('fs-fallback');
+      frame.classList.add('fs-fallback');
+      document.body.classList.add('fs-fallback-active');
+      fallbackFrame = frame;
       updateFsButtonIcons();
       resizeAllCharts();
+  }
+  function deactivateFallback() {
+      if (!fallbackFrame) return;
+      fallbackFrame.classList.remove('fs-fallback');
+      document.body.classList.remove('fs-fallback-active');
+      fallbackFrame = null;
+      updateFsButtonIcons();
+      resizeAllCharts();
+  }
+
+  function toggleChartFrame(frame) {
+      if (fallbackFrame === frame) { deactivateFallback(); return; }
+      if (currentFsElement() === frame) { exitFs(); return; }
+      if (supportsNativeFs(frame)) {
+          requestFs(frame).catch(() => {
+              // Native fullscreen was rejected for this element for some browser/CSS-specific
+              // reason (this happens on some charts but not others in practice) — fall back to
+              // the CSS overlay so the button still works either way.
+              activateFallback(frame);
+          });
+          return; // icon update + resize on success handled by the fullscreenchange listener below
+      }
+      activateFallback(frame);
   }
 
   document.querySelectorAll('.chart-fs-btn').forEach(btn => {
