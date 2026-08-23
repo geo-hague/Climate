@@ -48,6 +48,16 @@ document.addEventListener('DOMContentLoaded', function() {
       });
   }
 
+  function rerenderChartsForNewSize() {
+      // Resizing an existing Plotly chart in place has proven unreliable here — instead, once the
+      // container has actually settled at its new CSS size, fully re-render every chart from
+      // scratch. Plotly measures its container fresh at creation time, so this guarantees correct
+      // sizing regardless of why in-place resizing wasn't taking effect.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+          if (fullDataset) processAndPlot();
+      }));
+  }
+
   function expandFrame(frame) {
       if (activeFrame && activeFrame !== frame) collapseFrame(activeFrame);
       frame.classList.add('fs-active');
@@ -55,6 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
       activeFrame = frame;
       updateFsButtonIcons();
       requestFs(frame); // cosmetic: hides browser chrome when supported; safe no-op otherwise
+      rerenderChartsForNewSize();
   }
   function collapseFrame(frame) {
       frame.classList.remove('fs-active');
@@ -62,6 +73,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (activeFrame === frame) activeFrame = null;
       updateFsButtonIcons();
       if (currentFsElement() === frame) exitFs();
+      rerenderChartsForNewSize();
   }
   function toggleChartFrame(frame) {
       if (activeFrame === frame) collapseFrame(frame);
