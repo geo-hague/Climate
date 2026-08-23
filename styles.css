@@ -259,51 +259,47 @@ input:checked + .slider:before { transform: translateX(18px); }
 }
 .chart-frame:fullscreen,
 .chart-frame:-webkit-full-screen {
-    display: block;
-    width: 100vw;
-    height: 100vh;
-    flex: none !important;
-    min-width: 0 !important;
-    background: var(--bg);
-    padding: 24px;
-    box-sizing: border-box;
-}
-.chart-frame:fullscreen > div[id],
-.chart-frame:-webkit-full-screen > div[id] {
+    /* Sizing is handled entirely by .fs-active (applied at the same time as requestFullscreen),
+       so this just neutralizes the browser's own default fullscreen sizing to avoid it fighting
+       with ours. */
     width: 100% !important;
     height: 100% !important;
-}
-.chart-frame:fullscreen .chart-fs-btn,
-.chart-frame:-webkit-full-screen .chart-fs-btn {
-    top: 24px;
-    left: 24px;
+    max-width: none !important;
+    max-height: none !important;
 }
 
-/* Fallback for browsers without element Fullscreen API support (notably iPhone Safari) */
-.chart-frame.fs-fallback {
-    display: block;
+/* .fs-active is applied to the chart-frame any time it's expanded — whether or not the native
+   Fullscreen API also engaged — so sizing never depends on the :fullscreen pseudo-class matching. */
+.chart-frame.fs-active {
+    display: block !important;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
     flex: none !important;
     min-width: 0 !important;
-    z-index: 99999;
+    z-index: 999999;
     margin: 0 !important;
     background: var(--bg);
     padding: 20px;
     box-sizing: border-box;
 }
-.chart-frame.fs-fallback > div[id] {
+.chart-frame.fs-active > div[id] {
     width: 100% !important;
     height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
 }
-.chart-frame.fs-fallback .chart-fs-btn {
+.chart-frame.fs-active .chart-fs-btn {
     top: 20px;
     left: 20px;
 }
-body.fs-fallback-active {
+body.fs-active-lock {
     overflow: hidden;
 }
 

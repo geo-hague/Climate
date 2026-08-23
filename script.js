@@ -14,100 +14,58 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // CHART FULLSCREEN TOGGLE — each chart frame can expand to fill the screen and back.
-  // Uses the native Fullscreen API where supported; falls back to a fixed-position, full-viewport
-  // overlay for browsers that don't support element fullscreen (notably iPhone Safari, which only
-  // supports fullscreen on <video>).
+  // Sizing is controlled entirely by our own `.fs-active` CSS class (always), so it doesn't depend
+  // on the native `:fullscreen` pseudo-class matching correctly. The native Fullscreen API is used
+  // in addition, purely to hide the browser chrome — if it's unsupported or rejected, the class-based
+  // expand still works on its own (this is also the path iPhone Safari uses, since it doesn't support
+  // fullscreen on non-video elements).
   const ALL_CHART_IDS = ['boxDiv', 'lineDiv', 'windowTempDiv', 'windowPrecipDiv', 'climatoDiv', 'dailyClimatoDiv'];
-  let fallbackFrame = null;
+  let activeFrame = null;
 
-  function supportsNativeFs(el) {
-      return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen);
-  }
   function requestFs(el) {
       const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
-      if (!fn) return Promise.reject(new Error('Fullscreen API not available'));
+      if (!fn) return;
       try {
           const result = fn.call(el);
-          // Older prefixed implementations don't return a Promise — normalize to one either way.
-          return (result && typeof result.then === 'function') ? result : Promise.resolve();
-      } catch (err) {
-          return Promise.reject(err);
-      }
+          if (result && typeof result.catch === 'function') result.catch(() => {});
+      } catch (err) { /* ignore — class-based expand already handles the visual result */ }
   }
   function exitFs() {
       const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
-      if (fn) fn.call(document);
+      if (fn) { try { fn.call(document); } catch (err) { /* ignore */ } }
   }
   function currentFsElement() {
       return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
   }
 
-  function resizeAllCharts() {
-      const doResize = () => {
-          ALL_CHART_IDS.forEach(id => {
-              const el = document.getElementById(id);
-              if (!el || !window.Plotly) return;
-              const rect = el.getBoundingClientRect();
-              if (rect.width < 10 || rect.height < 10) return; // not visible / not laid out yet
-              try {
-                  // Explicitly force Plotly to the container's exact measured size rather than
-                  // relying on its own auto-detection, which can be unreliable for fixed-position
-                  // / fullscreen containers.
-                  Plotly.relayout(id, { width: rect.width, height: rect.height });
-              } catch (err) { /* chart not yet drawn */ }
-          });
-      };
-      // Wait for the browser to finish laying out the fullscreen container before measuring it —
-      // a fixed setTimeout can fire mid-transition on some browsers, leaving Plotly's SVG sized
-      // to a stale (small) container height. Retry a few times to also cover browsers that
-      // animate the native fullscreen transition over a few hundred ms.
-      requestAnimationFrame(() => requestAnimationFrame(doResize));
-      setTimeout(doResize, 150);
-      setTimeout(doResize, 400);
-      setTimeout(doResize, 700);
-  }
-
   function updateFsButtonIcons() {
-      const active = currentFsElement() || fallbackFrame;
       document.querySelectorAll('.chart-frame').forEach(frame => {
           const btn = frame.querySelector('.chart-fs-btn');
           if (!btn) return;
-          const isActive = frame === active;
+          const isActive = frame === activeFrame;
           btn.innerHTML = isActive ? '✕' : '⤢';
           btn.title = isActive ? 'Exit Full Screen' : 'Full Screen';
       });
   }
 
-  function activateFallback(frame) {
-      if (fallbackFrame) fallbackFrame.classList.remove('fs-fallback');
-      frame.classList.add('fs-fallback');
-      document.body.classList.add('fs-fallback-active');
-      fallbackFrame = frame;
+  function expandFrame(frame) {
+      if (activeFrame && activeFrame !== frame) collapseFrame(activeFrame);
+      frame.classList.add('fs-active');
+      document.body.classList.add('fs-active-lock');
+      activeFrame = frame;
       updateFsButtonIcons();
-      resizeAllCharts();
+      requestFs(frame); // cosmetic: hides browser chrome when supported; safe no-op otherwise
   }
-  function deactivateFallback() {
-      if (!fallbackFrame) return;
-      fallbackFrame.classList.remove('fs-fallback');
-      document.body.classList.remove('fs-fallback-active');
-      fallbackFrame = null;
+  function collapseFrame(frame) {
+      frame.classList.remove('fs-active');
+      document.body.classList.remove('fs-active-lock');
+      if (activeFrame === frame) activeFrame = null;
       updateFsButtonIcons();
-      resizeAllCharts();
+      if (currentFsElement() === frame) exitFs();
   }
-
   function toggleChartFrame(frame) {
-      if (fallbackFrame === frame) { deactivateFallback(); return; }
-      if (currentFsElement() === frame) { exitFs(); return; }
-      if (supportsNativeFs(frame)) {
-          requestFs(frame).catch(() => {
-              // Native fullscreen was rejected for this element for some browser/CSS-specific
-              // reason (this happens on some charts but not others in practice) — fall back to
-              // the CSS overlay so the button still works either way.
-              activateFallback(frame);
-          });
-          return; // icon update + resize on success handled by the fullscreenchange listener below
-      }
-      activateFallback(frame);
+      if (activeFrame === frame) collapseFrame(frame);
+      else expandFrame(frame);
   }
 
   document.querySelectorAll('.chart-fs-btn').forEach(btn => {
@@ -119,19 +77,38 @@ document.addEventListener('DOMContentLoaded', function() {
       });
   });
 
-  // Escape key closes the CSS-fallback overlay (native fullscreen already closes on Escape by itself)
   document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && fallbackFrame) toggleChartFrame(fallbackFrame);
+      if (e.key === 'Escape' && activeFrame) collapseFrame(activeFrame);
   });
 
+  // If the user exits native fullscreen some other way (Escape, browser UI, swipe on mobile),
+  // keep our class in sync so the chart collapses back down too.
   ['fullscreenchange', 'webkitfullscreenchange', 'msfullscreenchange'].forEach(evt => {
       document.addEventListener(evt, () => {
-          updateFsButtonIcons();
-          // Plotly draws to fixed pixel dimensions, so every chart needs a resize once the
-          // fullscreen container has settled into its new size (whether entering or exiting).
-          resizeAllCharts();
+          if (!currentFsElement() && activeFrame) collapseFrame(activeFrame);
       });
   });
+
+  // ResizeObserver is the correct, timing-proof way to know when a chart's container has actually
+  // finished laying out at a new size (unlike a guessed setTimeout delay) — fire Plotly's resize
+  // exactly when that happens, whether triggered by our fullscreen toggle or anything else
+  // (window resize, orientation change, sidebar toggling, etc).
+  if (window.ResizeObserver) {
+      ALL_CHART_IDS.forEach(id => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          let debounce = null;
+          const ro = new ResizeObserver(() => {
+              clearTimeout(debounce);
+              debounce = setTimeout(() => {
+                  if (window.Plotly) {
+                      try { Plotly.Plots.resize(id); } catch (err) { /* chart not yet drawn */ }
+                  }
+              }, 40);
+          });
+          ro.observe(el);
+      });
+  }
 
   function dayOfYear(dateStr) {
     const [y, m, d] = dateStr.split('-').map(Number);
