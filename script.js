@@ -4,6 +4,15 @@ document.addEventListener('DOMContentLoaded', function() {
   let threshUserEdited = false;
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+  // Every chart render goes through this so the exact traces/layout/config used are cached —
+  // lets the fullscreen toggle redraw a chart instantly from cache instead of recomputing
+  // everything from the raw dataset just to resize it.
+  const chartRenderCache = {};
+  function renderPlot(id, traces, layout, config) {
+      chartRenderCache[id] = { traces, layout, config };
+      return Plotly.react(id, traces, layout, config);
+  }
+
   function showSpinner(msg) {
     const el = document.getElementById('pageSpinner');
     el.querySelector('.page-spinner-msg').textContent = msg || 'Loading…';
@@ -49,12 +58,18 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function rerenderChartsForNewSize() {
-      // Resizing an existing Plotly chart in place has proven unreliable here — instead, once the
-      // container has actually settled at its new CSS size, fully re-render every chart from
-      // scratch. Plotly measures its container fresh at creation time, so this guarantees correct
-      // sizing regardless of why in-place resizing wasn't taking effect.
+      // Redraw every chart from its cached traces/layout — instant, since it skips all the
+      // dataset filtering and stat recomputation that processAndPlot() would otherwise redo.
+      // Plotly.react measures the container fresh each call, so this still fixes the sizing.
       requestAnimationFrame(() => requestAnimationFrame(() => {
-          if (fullDataset) processAndPlot();
+          ALL_CHART_IDS.forEach(id => {
+              const cached = chartRenderCache[id];
+              if (!cached || !document.getElementById(id)) return;
+              try {
+                  Plotly.react(id, cached.traces, cached.layout, cached.config);
+                  Plotly.Plots.resize(id);
+              } catch (err) { /* chart not yet drawn */ }
+          });
       }));
   }
 
@@ -1126,7 +1141,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       const tminStd = getStdDev(dailyReferenceValues.tmin);
       const xYears = dailyRows.map(r => r.year);
 
-      Plotly.newPlot('boxDiv', [
+      renderPlot('boxDiv', [
         { 
             y: dailyReferenceValues.tmin, 
             text: yearsMin, // Restores the year metadata
@@ -1155,7 +1170,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
             xanchor: 'center'
       }
         });
-      Plotly.newPlot('lineDiv', [
+      renderPlot('lineDiv', [
           // --- LAYER 1: Normal Range Ribbons (Background) ---
           {
               x: xYears.concat([...xYears].reverse()),
@@ -1557,7 +1572,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         displaylogo: false
     };
 
-    Plotly.react('windowTempDiv', tempTraces, {
+    renderPlot('windowTempDiv', tempTraces, {
         ...baseLayout,
         title: { text: `<b>${sYear} Temperature vs ${rangeText} Normals</b><br>${lastStation.name}, ${lastStation.state}`, x: 0.5, xanchor: 'center' },
         yaxis: { title: tempUnit, range: yTempRange, gridcolor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
@@ -1589,7 +1604,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
 
     const initialTotal = calcVisiblePrecip(viewStart, viewEnd);
 
-    Plotly.react('windowPrecipDiv', [precipTrace], {
+    renderPlot('windowPrecipDiv', [precipTrace], {
         ...baseLayout,
         title: { text: precipTitle(initialTotal), x: 0.5, xanchor: 'center' },
         yaxis: {
@@ -1728,7 +1743,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         bargap: 0.2
     };
 
-    Plotly.react('climatoDiv', traces, layout, { displayModeBar: false, responsive: true });
+    renderPlot('climatoDiv', traces, layout, { displayModeBar: false, responsive: true });
     // Force resize after layout settles to fix half-render on first load
     requestAnimationFrame(() => Plotly.Plots.resize('climatoDiv'));
   }
@@ -1916,7 +1931,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
         bargap: 0
     };
 
-    Plotly.react('dailyClimatoDiv', traces, layout, { displayModeBar: false, responsive: true });
+    renderPlot('dailyClimatoDiv', traces, layout, { displayModeBar: false, responsive: true });
     // Force resize after layout settles to fix half-render on first load
     requestAnimationFrame(() => Plotly.Plots.resize('dailyClimatoDiv'));
   }
