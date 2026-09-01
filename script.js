@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   const map = L.map('map', { zoomSnap: 0.5 }).setView([35.5, -80], 7);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2bv5_1_b89ed0565454b10cc432d585', { attribution: '&copy; CARTO' }).addTo(map);
   const markers = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 40 });
 
   const legend = L.control({ position: 'bottomright' });
