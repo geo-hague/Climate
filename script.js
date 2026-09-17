@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   const map = L.map('map', { zoomSnap: 0.5 }).setView([35.5, -80], 7);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2bv5_1_b89ed0565454b10cc432d585', { attribution: '&copy; CARTO' }).addTo(map);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }).addTo(map);
   const markers = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 40 });
 
   const legend = L.control({ position: 'bottomright' });
@@ -773,40 +773,62 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     // RECORD HIGH/LOW — uses ALL data (rawMonthData has no year filter)
     const allDayRows = rawMonthData.filter(d => d.day === dReq);
 
-    const recDayMaxRow = allDayRows.reduce((rec, r) => r.tmax !== null && (rec === null || r.tmax > rec.tmax) ? r : rec, null);
-    const recDayMinRow = allDayRows.reduce((rec, r) => r.tmin !== null && (rec === null || r.tmin < rec.tmin) ? r : rec, null);
-    const recMonMaxRow = rawMonthData.reduce((rec, r) => r.tmax !== null && (rec === null || r.tmax > rec.tmax) ? r : rec, null);
-    const recMonMinRow = rawMonthData.reduce((rec, r) => r.tmin !== null && (rec === null || r.tmin < rec.tmin) ? r : rec, null);
-
     const yearSmall = (text) => `<br><span style="font-size:0.65rem; color:var(--sub-text); font-weight:400; text-transform:none;">${text}</span>`;
 
-    document.getElementById('recDayMinLabel').innerHTML = `${monthName} ${dReq} Record Minimum Temperature${recDayMinRow ? yearSmall(`Set in ${recDayMinRow.year}`) : ''}`;
-    document.getElementById('recDayMaxLabel').innerHTML = `${monthName} ${dReq} Record Maximum Temperature${recDayMaxRow ? yearSmall(`Set in ${recDayMaxRow.year}`) : ''}`;
-    document.getElementById('recDayMin').textContent = recDayMinRow ? convert(recDayMinRow.tmin).toFixed(1) + unit : "--";
-    document.getElementById('recDayMax').textContent = recDayMaxRow ? convert(recDayMaxRow.tmax).toFixed(1) + unit : "--";
+    // Finds the record (max or min) value of `field` across `rows`, then returns EVERY row that
+    // ties that value — not just the first one encountered — so "Set in ____" can list every
+    // tied year instead of only the first.
+    const findRecordRows = (rows, field, mode) => {
+        let best = null;
+        rows.forEach(r => {
+            const v = r[field];
+            if (v === null || v === undefined) return;
+            if (best === null || (mode === 'max' ? v > best : v < best)) best = v;
+        });
+        if (best === null) return { value: null, rows: [] };
+        return { value: best, rows: rows.filter(r => r[field] === best) };
+    };
+    // Formats tied record rows as "Set in 2005, 1998" — or, with detailFn, "Set in 2005 (Jul 15), 1998 (Jul 20)"
+    const tieText = (tied, detailFn) => {
+        if (!tied.length) return '';
+        const parts = detailFn
+            ? [...new Set(tied.map(r => `${r.year} ${detailFn(r)}`))]
+            : [...new Set(tied.map(r => r.year))];
+        return parts.sort().join(', ');
+    };
 
-    document.getElementById('recMonMinLabel').innerHTML = `${monthName} Record Minimum Temperature${recMonMinRow ? yearSmall(`Set in ${recMonMinRow.year} (${monthName} ${recMonMinRow.day})`) : ''}`;
-    document.getElementById('recMonMaxLabel').innerHTML = `${monthName} Record Maximum Temperature${recMonMaxRow ? yearSmall(`Set in ${recMonMaxRow.year} (${monthName} ${recMonMaxRow.day})`) : ''}`;
-    document.getElementById('recMonMin').textContent = recMonMinRow ? convert(recMonMinRow.tmin).toFixed(1) + unit : "--";
-    document.getElementById('recMonMax').textContent = recMonMaxRow ? convert(recMonMaxRow.tmax).toFixed(1) + unit : "--";
+    const recDayMax = findRecordRows(allDayRows, 'tmax', 'max');
+    const recDayMin = findRecordRows(allDayRows, 'tmin', 'min');
+    const recMonMax = findRecordRows(rawMonthData, 'tmax', 'max');
+    const recMonMin = findRecordRows(rawMonthData, 'tmin', 'min');
+
+    document.getElementById('recDayMinLabel').innerHTML = `${monthName} ${dReq} Record Minimum Temperature${recDayMin.rows.length ? yearSmall(`Set in ${tieText(recDayMin.rows)}`) : ''}`;
+    document.getElementById('recDayMaxLabel').innerHTML = `${monthName} ${dReq} Record Maximum Temperature${recDayMax.rows.length ? yearSmall(`Set in ${tieText(recDayMax.rows)}`) : ''}`;
+    document.getElementById('recDayMin').textContent = recDayMin.value !== null ? convert(recDayMin.value).toFixed(1) + unit : "--";
+    document.getElementById('recDayMax').textContent = recDayMax.value !== null ? convert(recDayMax.value).toFixed(1) + unit : "--";
+
+    document.getElementById('recMonMinLabel').innerHTML = `${monthName} Record Minimum Temperature${recMonMin.rows.length ? yearSmall(`Set in ${tieText(recMonMin.rows, r => `(${monthName} ${r.day})`)}`) : ''}`;
+    document.getElementById('recMonMaxLabel').innerHTML = `${monthName} Record Maximum Temperature${recMonMax.rows.length ? yearSmall(`Set in ${tieText(recMonMax.rows, r => `(${monthName} ${r.day})`)}`) : ''}`;
+    document.getElementById('recMonMin').textContent = recMonMin.value !== null ? convert(recMonMin.value).toFixed(1) + unit : "--";
+    document.getElementById('recMonMax').textContent = recMonMax.value !== null ? convert(recMonMax.value).toFixed(1) + unit : "--";
 
     // RECORD WARMEST LOW / COOLEST HIGH — all data, no period filter
-    const recDayMaxMinRow = allDayRows.reduce((rec, r) => r.tmin !== null && (rec === null || r.tmin > rec.tmin) ? r : rec, null);
-    const recDayMinMaxRow = allDayRows.reduce((rec, r) => r.tmax !== null && (rec === null || r.tmax < rec.tmax) ? r : rec, null);
-    const recMonMaxMinRow = rawMonthData.reduce((rec, r) => r.tmin !== null && (rec === null || r.tmin > rec.tmin) ? r : rec, null);
-    const recMonMinMaxRow = rawMonthData.reduce((rec, r) => r.tmax !== null && (rec === null || r.tmax < rec.tmax) ? r : rec, null);
+    const recDayMaxMin = findRecordRows(allDayRows, 'tmin', 'max');
+    const recDayMinMax = findRecordRows(allDayRows, 'tmax', 'min');
+    const recMonMaxMin = findRecordRows(rawMonthData, 'tmin', 'max');
+    const recMonMinMax = findRecordRows(rawMonthData, 'tmax', 'min');
 
-    document.getElementById('recDayMaxMinLabel').innerHTML = `${monthName} ${dReq} Record Warmest Low Temperature${recDayMaxMinRow ? yearSmall(`Set in ${recDayMaxMinRow.year}`) : ''}`;
-    document.getElementById('recDayMaxMin').textContent = recDayMaxMinRow ? convert(recDayMaxMinRow.tmin).toFixed(1) + unit : "--";
+    document.getElementById('recDayMaxMinLabel').innerHTML = `${monthName} ${dReq} Record Warmest Low Temperature${recDayMaxMin.rows.length ? yearSmall(`Set in ${tieText(recDayMaxMin.rows)}`) : ''}`;
+    document.getElementById('recDayMaxMin').textContent = recDayMaxMin.value !== null ? convert(recDayMaxMin.value).toFixed(1) + unit : "--";
 
-    document.getElementById('recDayMinMaxLabel').innerHTML = `${monthName} ${dReq} Record Coolest High Temperature${recDayMinMaxRow ? yearSmall(`Set in ${recDayMinMaxRow.year}`) : ''}`;
-    document.getElementById('recDayMinMax').textContent = recDayMinMaxRow ? convert(recDayMinMaxRow.tmax).toFixed(1) + unit : "--";
+    document.getElementById('recDayMinMaxLabel').innerHTML = `${monthName} ${dReq} Record Coolest High Temperature${recDayMinMax.rows.length ? yearSmall(`Set in ${tieText(recDayMinMax.rows)}`) : ''}`;
+    document.getElementById('recDayMinMax').textContent = recDayMinMax.value !== null ? convert(recDayMinMax.value).toFixed(1) + unit : "--";
 
-    document.getElementById('recMonMaxMinLabel').innerHTML = `${monthName} Record Warmest Low Temperature${recMonMaxMinRow ? yearSmall(`Set in ${recMonMaxMinRow.year} (${monthName} ${recMonMaxMinRow.day})`) : ''}`;
-    document.getElementById('recMonMaxMin').textContent = recMonMaxMinRow ? convert(recMonMaxMinRow.tmin).toFixed(1) + unit : "--";
+    document.getElementById('recMonMaxMinLabel').innerHTML = `${monthName} Record Warmest Low Temperature${recMonMaxMin.rows.length ? yearSmall(`Set in ${tieText(recMonMaxMin.rows, r => `(${monthName} ${r.day})`)}`) : ''}`;
+    document.getElementById('recMonMaxMin').textContent = recMonMaxMin.value !== null ? convert(recMonMaxMin.value).toFixed(1) + unit : "--";
 
-    document.getElementById('recMonMinMaxLabel').innerHTML = `${monthName} Record Coolest High Temperature${recMonMinMaxRow ? yearSmall(`Set in ${recMonMinMaxRow.year} (${monthName} ${recMonMinMaxRow.day})`) : ''}`;
-    document.getElementById('recMonMinMax').textContent = recMonMinMaxRow ? convert(recMonMinMaxRow.tmax).toFixed(1) + unit : "--";
+    document.getElementById('recMonMinMaxLabel').innerHTML = `${monthName} Record Coolest High Temperature${recMonMinMax.rows.length ? yearSmall(`Set in ${tieText(recMonMinMax.rows, r => `(${monthName} ${r.day})`)}`) : ''}`;
+    document.getElementById('recMonMinMax').textContent = recMonMinMax.value !== null ? convert(recMonMinMax.value).toFixed(1) + unit : "--";
 
     // PRECIPITATION TOTALS
     const precipUnit = isF ? "in" : "mm";
@@ -877,16 +899,16 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     }
 
     // Record monthly precip (all years)
-    const recMonthMaxPrecip = monthlyTotalsByYear.reduce((rec, r) => r.total > (rec?.total ?? -Infinity) ? r : rec, null);
-    const recMonthMinPrecip = monthlyTotalsByYear.filter(r => r.year < systemYear).reduce((rec, r) => r.total < (rec?.total ?? Infinity) ? r : rec, null);
+    const recMonthMaxPrecip = findRecordRows(monthlyTotalsByYear, 'total', 'max');
+    const recMonthMinPrecip = findRecordRows(monthlyTotalsByYear.filter(r => r.year < systemYear), 'total', 'min');
 
     // Record annual precip (all years)
-    const recYearMaxPrecip = annualTotalsByYear.reduce((rec, r) => r.total > (rec?.total ?? -Infinity) ? r : rec, null);
-    const recYearMinPrecip = annualTotalsByYear.filter(r => r.year < systemYear).reduce((rec, r) => r.total < (rec?.total ?? Infinity) ? r : rec, null);
+    const recYearMaxPrecip = findRecordRows(annualTotalsByYear, 'total', 'max');
+    const recYearMinPrecip = findRecordRows(annualTotalsByYear.filter(r => r.year < systemYear), 'total', 'min');
 
     // All-time record temperatures (entire dataset, any date)
-    const allTimeMaxRow = fullDataset.reduce((rec, r) => r.TMAX != null && (rec === null || r.TMAX > rec.TMAX) ? r : rec, null);
-    const allTimeMinRow = fullDataset.reduce((rec, r) => r.TMIN != null && (rec === null || r.TMIN < rec.TMIN) ? r : rec, null);
+    const allTimeMax = findRecordRows(fullDataset, 'TMAX', 'max');
+    const allTimeMin = findRecordRows(fullDataset, 'TMIN', 'min');
 
     const fmtPrecip = (v) => v !== null ? v.toFixed(precipDecimals) + ' ' + precipUnit : '--';
 
@@ -926,29 +948,29 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     document.getElementById('driestMonth').textContent = fmtMonthPrecip(driestMonth);
 
     document.getElementById('precipRecMonthMaxLabel').innerHTML =
-        `${monthName} Record Maximum Precipitation${recMonthMaxPrecip ? yearSmall(`Set in ${recMonthMaxPrecip.year}`) : ''}`;
-    document.getElementById('precipRecMonthMax').textContent = fmtPrecip(recMonthMaxPrecip?.total ?? null);
+        `${monthName} Record Maximum Precipitation${recMonthMaxPrecip.rows.length ? yearSmall(`Set in ${tieText(recMonthMaxPrecip.rows)}`) : ''}`;
+    document.getElementById('precipRecMonthMax').textContent = fmtPrecip(recMonthMaxPrecip.value);
 
     document.getElementById('precipRecMonthMinLabel').innerHTML =
-        `${monthName} Record Minimum Precipitation${recMonthMinPrecip ? yearSmall(`Set in ${recMonthMinPrecip.year}`) : ''}`;
-    document.getElementById('precipRecMonthMin').textContent = fmtPrecip(recMonthMinPrecip?.total ?? null);
+        `${monthName} Record Minimum Precipitation${recMonthMinPrecip.rows.length ? yearSmall(`Set in ${tieText(recMonthMinPrecip.rows)}`) : ''}`;
+    document.getElementById('precipRecMonthMin').textContent = fmtPrecip(recMonthMinPrecip.value);
 
     document.getElementById('precipRecYearMaxLabel').innerHTML =
-        `Record Maximum Annual Precipitation${recYearMaxPrecip ? yearSmall(`Set in ${recYearMaxPrecip.year}`) : ''}`;
-    document.getElementById('precipRecYearMax').textContent = fmtPrecip(recYearMaxPrecip?.total ?? null);
+        `Record Maximum Annual Precipitation${recYearMaxPrecip.rows.length ? yearSmall(`Set in ${tieText(recYearMaxPrecip.rows)}`) : ''}`;
+    document.getElementById('precipRecYearMax').textContent = fmtPrecip(recYearMaxPrecip.value);
 
     document.getElementById('precipRecYearMinLabel').innerHTML =
-        `Record Minimum Annual Precipitation${recYearMinPrecip ? yearSmall(`Set in ${recYearMinPrecip.year}`) : ''}`;
-    document.getElementById('precipRecYearMin').textContent = fmtPrecip(recYearMinPrecip?.total ?? null);
+        `Record Minimum Annual Precipitation${recYearMinPrecip.rows.length ? yearSmall(`Set in ${tieText(recYearMinPrecip.rows)}`) : ''}`;
+    document.getElementById('precipRecYearMin').textContent = fmtPrecip(recYearMinPrecip.value);
 
     // All-time temperature records
     document.getElementById('allTimeMaxLabel').innerHTML =
-        `All-Time Record Maximum Temperature${allTimeMaxRow ? yearSmall(fmtDate(allTimeMaxRow.DATE)) : ''}`;
-    document.getElementById('allTimeMax').textContent = allTimeMaxRow ? convert(allTimeMaxRow.TMAX / 10).toFixed(1) + unit : '--';
+        `All-Time Record Maximum Temperature${allTimeMax.rows.length ? yearSmall(`Set on ${[...new Set(allTimeMax.rows.map(r => fmtDate(r.DATE)))].join(', ')}`) : ''}`;
+    document.getElementById('allTimeMax').textContent = allTimeMax.value !== null ? convert(allTimeMax.value / 10).toFixed(1) + unit : '--';
 
     document.getElementById('allTimeMinLabel').innerHTML =
-        `All-Time Record Minimum Temperature${allTimeMinRow ? yearSmall(fmtDate(allTimeMinRow.DATE)) : ''}`;
-    document.getElementById('allTimeMin').textContent = allTimeMinRow ? convert(allTimeMinRow.TMIN / 10).toFixed(1) + unit : '--';
+        `All-Time Record Minimum Temperature${allTimeMin.rows.length ? yearSmall(`Set on ${[...new Set(allTimeMin.rows.map(r => fmtDate(r.DATE)))].join(', ')}`) : ''}`;
+    document.getElementById('allTimeMin').textContent = allTimeMin.value !== null ? convert(allTimeMin.value / 10).toFixed(1) + unit : '--';
 
     // YTD PRECIPITATION
     // Cutoff: Jan 1 of selected year through selected month/day
