@@ -1869,7 +1869,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             name: 'Avg Cumulative Precip',
             marker: { color: 'rgba(9,132,227,0.55)', line: { width: 0 } },
             yaxis: 'y',
-            hovertemplate: '%{x}<br>Cumulative Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
+            hovertemplate: '%{x|%b %d}<br>Cumulative Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
         },
         {
             x: dates, y: actualCumulativePrecip,
@@ -1878,7 +1878,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             line: { color: '#08306b', width: 2.5 },
             yaxis: 'y',
             connectgaps: true,
-            hovertemplate: '%{x}<br>' + sYear + ' Cumulative Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
+            hovertemplate: '%{x|%b %d}<br>' + sYear + ' Cumulative Precip: %{y:.2f}' + precipUnit + '<extra></extra>'
         },
         {
             x: dates, y: avgMaxByDay,
@@ -1887,7 +1887,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             line: { color: '#ff7675', width: 2 },
             yaxis: 'y2',
             connectgaps: true,
-            hovertemplate: '%{x}<br>Avg Max: %{y:.1f}' + tempUnit + '<extra></extra>'
+            hovertemplate: '%{x|%b %d}<br>Avg Max: %{y:.1f}' + tempUnit + '<extra></extra>'
         },
         {
             x: dates, y: avgMinByDay,
@@ -1896,7 +1896,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             line: { color: '#74b9ff', width: 2 },
             yaxis: 'y2',
             connectgaps: true,
-            hovertemplate: '%{x}<br>Avg Min: %{y:.1f}' + tempUnit + '<extra></extra>'
+            hovertemplate: '%{x|%b %d}<br>Avg Min: %{y:.1f}' + tempUnit + '<extra></extra>'
         },
         {
             x: dates, y: actualMaxByDay,
@@ -1905,7 +1905,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             line: { color: '#8b0000', width: 1.6 },
             yaxis: 'y2',
             connectgaps: true,
-            hovertemplate: '%{x}<br>' + sYear + ' Max: %{y:.1f}' + tempUnit + '<extra></extra>'
+            hovertemplate: '%{x|%b %d}<br>' + sYear + ' Max: %{y:.1f}' + tempUnit + '<extra></extra>'
         },
         {
             x: dates, y: actualMinByDay,
@@ -1914,7 +1914,7 @@ function renderWindowCharts(windowRows, histAverages, sYear, dates, rangeText, s
             line: { color: '#1a237e', width: 1.6 },
             yaxis: 'y2',
             connectgaps: true,
-            hovertemplate: '%{x}<br>' + sYear + ' Min: %{y:.1f}' + tempUnit + '<extra></extra>'
+            hovertemplate: '%{x|%b %d}<br>' + sYear + ' Min: %{y:.1f}' + tempUnit + '<extra></extra>'
         }
     ];
 
