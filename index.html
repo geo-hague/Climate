@@ -15,7 +15,12 @@
 <h2 class="top-header">Daily Climate Analytics Dashboard</h2>
 <div id="stationHeader">Select a station marker on the map or search to begin.</div>
 
-<div id="map"></div>
+<div id="mapWrap">
+  <div id="map"></div>
+  <div id="mapSpinner" class="map-loading-overlay">
+    <div class="page-spinner-ring"></div>
+  </div>
+</div>
 
 <div id="controls">
     <div class="search-container">

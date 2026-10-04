@@ -21,6 +21,12 @@ document.addEventListener('DOMContentLoaded', function() {
   function hideSpinner() {
     document.getElementById('pageSpinner').style.display = 'none';
   }
+  // Shows the spinner, then defers the (synchronous, sometimes slow) reprocess by one tick so the
+  // browser actually gets to paint the spinner first instead of freezing straight into the work.
+  function triggerProcessAndPlot(msg) {
+    showSpinner(msg || 'Updating...');
+    setTimeout(() => { processAndPlot(); }, 16);
+  }
 
   // CHART FULLSCREEN TOGGLE — each chart frame can expand to fill the screen and back.
   // Sizing is controlled entirely by our own `.fs-active` CSS class (always), so it doesn't depend
@@ -271,6 +277,14 @@ legend.addTo(map);
         markers.addLayer(dot);
       });
       map.addLayer(markers);
+      const mapSpinner = document.getElementById('mapSpinner');
+      if (mapSpinner) mapSpinner.style.display = 'none';
+    },
+    error: function() {
+      // Still dismiss the spinner on failure so it doesn't spin forever; the map itself
+      // (tiles, zoom controls) remains usable even without station markers.
+      const mapSpinner = document.getElementById('mapSpinner');
+      if (mapSpinner) mapSpinner.style.display = 'none';
     }
   });
 
@@ -440,8 +454,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     const selectedYear = parseInt(e.target.value);
     syncPeriodToYear(selectedYear);
     
-    // ADD THIS LINE:
-    processAndPlot(); 
+    triggerProcessAndPlot('Updating...');
     
     isSyncing = false;
 });
@@ -463,10 +476,10 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
   // Change triggerDataFetch to processAndPlot so we use the data already in memory
   document.getElementById('month').addEventListener('change', () => { 
       populateDays(); 
-      processAndPlot(); 
+      triggerProcessAndPlot('Updating...'); 
   });
 
-  document.getElementById('day').addEventListener('change', processAndPlot);
+  document.getElementById('day').addEventListener('change', () => triggerProcessAndPlot('Updating...'));
 
   document.getElementById('unitToggle').addEventListener('change', () => { 
       updateToggleColors(); 
@@ -478,7 +491,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       } else if (!isNaN(cur)) {
           threshInput.value = Math.round(isF ? (cur * 9/5 + 32) : ((cur - 32) * 5/9));
       }
-      processAndPlot(); 
+      triggerProcessAndPlot('Updating...'); 
   });
 
   document.getElementById('threshTemp').addEventListener('input', () => {
@@ -498,7 +511,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       document.getElementById('yearSelect').value = currentYear;
 
       syncPeriodToYear(currentYear);
-      processAndPlot(); // Refresh everything
+      triggerProcessAndPlot('Updating...'); // Refresh everything
   });
 
   document.querySelectorAll('.card-tab').forEach(btn => {
@@ -516,10 +529,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       this.classList.add('active');
       currentRange.start = parseInt(this.dataset.start);
       currentRange.end = parseInt(this.dataset.end);
-      showSpinner("Recalculating normals...");
-      setTimeout(() => {
-        processAndPlot();
-      }, 16);
+      triggerProcessAndPlot('Recalculating normals...');
     });
   });
 
