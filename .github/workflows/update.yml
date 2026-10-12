@@ -23,9 +23,11 @@ jobs:
         run: pip install pandas requests
 
       - name: Run Update Script
+        id: update
         run: python update_data.py
 
       - name: Commit and Push
+        if: steps.update.outputs.changed == 'true'
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
