@@ -506,7 +506,7 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       dateThreshUserEdited = true;
       updateDateThresholdCard();
   });
-  ['dateThreshWhich', 'dateThreshCompare', 'dateThreshField'].forEach(id => {
+  ['dateThreshWhich', 'dateThreshCompare', 'dateThreshField', 'dateThreshSeason'].forEach(id => {
       document.getElementById(id).addEventListener('change', updateDateThresholdCard);
   });
 
@@ -1432,7 +1432,14 @@ function updateDateThresholdCard() {
     const which = document.getElementById('dateThreshWhich').value;     // 'first' | 'last'
     const compare = document.getElementById('dateThreshCompare').value; // 'above' | 'below'
     const field = document.getElementById('dateThreshField').value;     // 'TMAX' | 'TMIN'
+    const season = document.getElementById('dateThreshSeason').value;   // 'all' | 'spring' (Jan-Jun) | 'fall' (Jul-Dec)
     const threshold = parseFloat(document.getElementById('dateThreshTemp').value);
+
+    // Same spring/fall split the frost & freeze cards use: spring = Jan-Jun, fall = Jul-Dec
+    const seasonStart = season === 'fall' ? '07-01' : '01-01';
+    const seasonEnd = season === 'spring' ? '06-30' : '12-31';
+    const seasonSuffix = season === 'spring' ? ', Jan–Jun' : season === 'fall' ? ', Jul–Dec' : '';
+    const inSeason = (dateStr) => { const md = dateStr.slice(5); return md >= seasonStart && md <= seasonEnd; };
 
     const whichLabel = which === 'first' ? 'Earliest' : 'Latest';
     const compareLabel = compare === 'above' ? 'Above' : 'Below';
@@ -1482,7 +1489,7 @@ function updateDateThresholdCard() {
     const perYear = {};
     const yearsWithData = new Set();
     fullDataset.forEach(d => {
-        if (!d.DATE) return;
+        if (!d.DATE || !inSeason(d.DATE)) return;
         const raw = d[field];
         if (raw == null) return;
         const y = parseInt(d.DATE.split('-')[0]);
@@ -1495,20 +1502,21 @@ function updateDateThresholdCard() {
 
     // Selected year
     const selDate = perYear[sYear] ? perYear[sYear][which] : null;
-    resultLabelEl.textContent = `${whichLabel} Date ${compareLabel} ${threshold}${unit} (${fieldLabel}) in ${sYear}`;
+    resultLabelEl.textContent = `${whichLabel} Date ${compareLabel} ${threshold}${unit} (${fieldLabel}${seasonSuffix}) in ${sYear}`;
     if (selDate) {
         resultEl.textContent = fmtLong(selDate);
     } else if (!yearsWithData.has(sYear)) {
-        resultEl.textContent = '--';
+        // No data inside the chosen season for this year — either it hasn't started yet, or there's none
+        resultEl.textContent = (latestDate && latestDate.slice(5) < seasonStart) ? 'Season not started' : '--';
     } else {
-        const partial = latestDate && latestDate.slice(5) < '12-31';
+        const partial = latestDate && latestDate.slice(5) < seasonEnd;
         resultEl.textContent = partial ? 'Not yet reached' : 'Not reached';
     }
 
     // Normal — average day-of-year across the normals-period years that reached the threshold
     const normalYears = [...yearsWithData].filter(y => y >= rangeS && y <= rangeE);
     const reachedYears = normalYears.filter(y => perYear[y]);
-    normalLabelEl.innerHTML = `Average ${whichLabel} Date ${compareLabel} ${threshold}${unit} (${fieldLabel}) — ${rangeText}` +
+    normalLabelEl.innerHTML = `Average ${whichLabel} Date ${compareLabel} ${threshold}${unit} (${fieldLabel}${seasonSuffix}) — ${rangeText}` +
         (normalYears.length ? small(`Reached in ${reachedYears.length} of ${normalYears.length} years`) : '');
 
     let avgDoy = null;
