@@ -1452,6 +1452,7 @@ function updateDateThresholdCard() {
     const normalLabelEl = document.getElementById('dateThreshNormalLabel');
     const normalEl = document.getElementById('dateThreshNormal');
     const depEl = document.getElementById('dateThreshDep');
+    const rangeEl = document.getElementById('dateThreshRange');
     const latestEl = document.getElementById('dateThreshLatestData');
 
     // Latest data date for the selected year, so it's clear how much of the year was searched
@@ -1470,8 +1471,17 @@ function updateDateThresholdCard() {
         resultEl.textContent = '--';
         normalEl.textContent = '--';
         depEl.textContent = '';
+        rangeEl.textContent = '';
         return;
     }
+
+    // Leap-year-proof day index: every date maps onto the same non-leap calendar (Feb 29 -> Feb 28),
+    // so averaging, the displayed average date, and the earlier/later difference all agree exactly.
+    const calDoy = (dateStr) => {
+        const [, m, d] = dateStr.split('-').map(Number);
+        const day = (m === 2 && d === 29) ? 28 : d;
+        return Math.round((new Date(2023, m - 1, day) - new Date(2023, 0, 1)) / 86400000) + 1;
+    };
 
     const meets = (v) => compare === 'above' ? v > threshold : v < threshold;
     const fmtLong = (dateStr) => {
@@ -1517,22 +1527,27 @@ function updateDateThresholdCard() {
     const normalYears = [...yearsWithData].filter(y => y >= rangeS && y <= rangeE);
     const reachedYears = normalYears.filter(y => perYear[y]);
     normalLabelEl.innerHTML = `Average ${whichLabel} Date ${compareLabel} ${threshold}${unit} (${fieldLabel}${seasonSuffix}) — ${rangeText}` +
-        (normalYears.length ? small(`Reached in ${reachedYears.length} of ${normalYears.length} years`) : '');
+        (normalYears.length ? small(`Threshold met at least once in ${reachedYears.length} of ${normalYears.length} years`) : '');
 
     let avgDoy = null;
+    rangeEl.style.color = 'var(--sub-text)';
     if (reachedYears.length) {
-        avgDoy = reachedYears.reduce((s, y) => s + dayOfYear(perYear[y][which]), 0) / reachedYears.length;
+        const doys = reachedYears.map(y => calDoy(perYear[y][which]));
+        avgDoy = doys.reduce((s, v) => s + v, 0) / doys.length;
         normalEl.textContent = doyToDateStr(Math.round(avgDoy));
+        // Show the spread so it's clear what the average is made of
+        rangeEl.textContent = `Ranged from ${doyToDateStr(Math.min(...doys))} to ${doyToDateStr(Math.max(...doys))}`;
     } else {
         normalEl.textContent = normalYears.length ? 'Never reached' : '--';
+        rangeEl.textContent = '';
     }
 
     // Departure of the selected year's date from the average date
     if (selDate && avgDoy !== null) {
-        const diff = Math.round(dayOfYear(selDate) - avgDoy);
+        const diff = Math.round(calDoy(selDate) - avgDoy);
         depEl.style.color = 'var(--sub-text)';
         if (diff === 0) depEl.textContent = 'On the average date';
-        else depEl.textContent = `${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'} ${diff < 0 ? 'earlier' : 'later'} than average`;
+        else depEl.textContent = `${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'} ${diff < 0 ? 'earlier' : 'later'} than the average date`;
     } else {
         depEl.textContent = '';
     }
