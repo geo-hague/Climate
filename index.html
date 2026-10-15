@@ -145,6 +145,40 @@
       <div class="stat-card min"><span class="stat-label" id="firstHardFreezeLabel">Average First Fall Hard Freeze Date</span><span class="stat-value stat-date" id="firstHardFreeze">--</span></div>
     </div>
 
+    <!-- FIRST / LAST DATE THRESHOLD -->
+    <div id="dateThreshWrap">
+      <div class="threshold-title">First / Last Date Exceeding Temperature Threshold</div>
+      <div id="dateThreshControls">
+        <select id="dateThreshWhich">
+          <option value="first">Earliest</option>
+          <option value="last">Latest</option>
+        </select>
+        <span class="threshold-label">date</span>
+        <select id="dateThreshCompare">
+          <option value="above">Above</option>
+          <option value="below">Below</option>
+        </select>
+        <input type="number" id="dateThreshTemp" value="90" step="1">
+        <span class="threshold-label" id="dateThreshUnitLabel">°F</span>
+        <select id="dateThreshField">
+          <option value="TMAX">Max Temp</option>
+          <option value="TMIN">Min Temp</option>
+        </select>
+      </div>
+      <div class="threshold-latest" id="dateThreshLatestData"></div>
+      <div class="stats-row">
+        <div class="stat-card daily" style="border-bottom: 4px solid var(--primary);">
+          <span class="stat-label" id="dateThreshResultLabel">Earliest Date Above 90°F in 2026</span>
+          <span class="stat-value stat-date" id="dateThreshResult">--</span>
+        </div>
+        <div class="stat-card daily" style="border-bottom: 4px solid var(--sub-text);">
+          <span class="stat-label" id="dateThreshNormalLabel">Average Earliest Date Above 90°F</span>
+          <span class="stat-value stat-date" id="dateThreshNormal">--</span>
+          <span class="departure-info" id="dateThreshDep"></span>
+        </div>
+      </div>
+    </div>
+
     <!-- THRESHOLD DAY COUNTER -->
     <div id="thresholdWrap">
       <div class="threshold-title">Days Exceeding Temperature Threshold</div>

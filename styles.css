@@ -394,7 +394,7 @@ body.fs-active-lock {
 @keyframes page-spin { to { transform: rotate(360deg); } }
 
 /* Threshold day-count feature */
-#thresholdWrap {
+#thresholdWrap, #dateThreshWrap {
     width: 100%;
     max-width: 700px;
     margin: 10px auto 0 auto;
@@ -408,7 +408,7 @@ body.fs-active-lock {
     font-weight: 700;
     color: var(--text);
 }
-#thresholdControls {
+#thresholdControls, #dateThreshControls {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -432,7 +432,7 @@ body.fs-active-lock {
     text-align: center;
     min-height: 1em;
 }
-#threshTemp {
+#threshTemp, #dateThreshTemp {
     width: 70px;
     background: var(--bg);
     color: var(--text);

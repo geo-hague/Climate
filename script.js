@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let lastStation = null, fullDataset = null, allStations = [], currentRange = { start: 1991, end: 2020 };
   let dailyReferenceValues = { tmin: [], tmax: [] };
   let threshUserEdited = false;
+  let dateThreshUserEdited = false;
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   // Every chart render goes through this so the exact traces/layout/config used are cached —
@@ -491,7 +492,22 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
       } else if (!isNaN(cur)) {
           threshInput.value = Math.round(isF ? (cur * 9/5 + 32) : ((cur - 32) * 5/9));
       }
+      const dateThreshInput = document.getElementById('dateThreshTemp');
+      const dCur = parseFloat(dateThreshInput.value);
+      if (!dateThreshUserEdited) {
+          dateThreshInput.value = isF ? 90 : 30;
+      } else if (!isNaN(dCur)) {
+          dateThreshInput.value = Math.round(isF ? (dCur * 9/5 + 32) : ((dCur - 32) * 5/9));
+      }
       triggerProcessAndPlot('Updating...'); 
+  });
+
+  document.getElementById('dateThreshTemp').addEventListener('input', () => {
+      dateThreshUserEdited = true;
+      updateDateThresholdCard();
+  });
+  ['dateThreshWhich', 'dateThreshCompare', 'dateThreshField'].forEach(id => {
+      document.getElementById(id).addEventListener('change', updateDateThresholdCard);
   });
 
   document.getElementById('threshTemp').addEventListener('input', () => {
@@ -1402,7 +1418,116 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     renderClimatograph(rangeText);
     renderDailyClimatograph(rangeText, sYear);
     updateThresholdCard();
+    updateDateThresholdCard();
     hideSpinner();
+}
+
+function updateDateThresholdCard() {
+    if (!fullDataset) return;
+    const isF = document.getElementById('unitToggle').checked;
+    const unit = isF ? "°F" : "°C";
+    const convert = (v) => (v == null ? null : (isF ? (v * 9/5 + 32) : v));
+    const sYear = parseInt(document.getElementById('yearSelect').value);
+
+    const which = document.getElementById('dateThreshWhich').value;     // 'first' | 'last'
+    const compare = document.getElementById('dateThreshCompare').value; // 'above' | 'below'
+    const field = document.getElementById('dateThreshField').value;     // 'TMAX' | 'TMIN'
+    const threshold = parseFloat(document.getElementById('dateThreshTemp').value);
+
+    const whichLabel = which === 'first' ? 'Earliest' : 'Latest';
+    const compareLabel = compare === 'above' ? 'Above' : 'Below';
+    const fieldLabel = field === 'TMAX' ? 'Max Temp' : 'Min Temp';
+
+    document.getElementById('dateThreshUnitLabel').textContent = unit;
+
+    const resultLabelEl = document.getElementById('dateThreshResultLabel');
+    const resultEl = document.getElementById('dateThreshResult');
+    const normalLabelEl = document.getElementById('dateThreshNormalLabel');
+    const normalEl = document.getElementById('dateThreshNormal');
+    const depEl = document.getElementById('dateThreshDep');
+    const latestEl = document.getElementById('dateThreshLatestData');
+
+    // Latest data date for the selected year, so it's clear how much of the year was searched
+    let latestDate = null;
+    fullDataset.forEach(d => {
+        if (d.DATE && parseInt(d.DATE.split('-')[0]) === sYear && (!latestDate || d.DATE > latestDate)) latestDate = d.DATE;
+    });
+    if (latestDate) {
+        const [ly, lm, ld] = latestDate.split('-').map(Number);
+        latestEl.textContent = `Latest Data for ${sYear}: ${monthNames[lm - 1]} ${ld}, ${ly}`;
+    } else {
+        latestEl.textContent = `No data available for ${sYear}`;
+    }
+
+    if (isNaN(threshold)) {
+        resultEl.textContent = '--';
+        normalEl.textContent = '--';
+        depEl.textContent = '';
+        return;
+    }
+
+    const meets = (v) => compare === 'above' ? v > threshold : v < threshold;
+    const fmtLong = (dateStr) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return `${monthNames[m - 1]} ${d}, ${y}`;
+    };
+    const small = (text) => `<br><span style="font-size:0.65rem; color:var(--sub-text); font-weight:400; text-transform:none;">${text}</span>`;
+
+    // For every year: the first and last date (ISO strings sort chronologically) that meets the condition,
+    // plus which years have any usable data at all (so "reached in N of M years" is meaningful)
+    const rangeS = currentRange.start === 0 ? 1900 : currentRange.start;
+    const rangeE = currentRange.end >= 9000 ? 2025 : currentRange.end;
+    const rangeText = currentRange.start === 0 ? 'All Data' : `${currentRange.start}-${currentRange.end}`;
+
+    const perYear = {};
+    const yearsWithData = new Set();
+    fullDataset.forEach(d => {
+        if (!d.DATE) return;
+        const raw = d[field];
+        if (raw == null) return;
+        const y = parseInt(d.DATE.split('-')[0]);
+        yearsWithData.add(y);
+        if (!meets(convert(raw / 10))) return;
+        const rec = perYear[y] || (perYear[y] = { first: d.DATE, last: d.DATE });
+        if (d.DATE < rec.first) rec.first = d.DATE;
+        if (d.DATE > rec.last) rec.last = d.DATE;
+    });
+
+    // Selected year
+    const selDate = perYear[sYear] ? perYear[sYear][which] : null;
+    resultLabelEl.textContent = `${whichLabel} Date ${compareLabel} ${threshold}${unit} (${fieldLabel}) in ${sYear}`;
+    if (selDate) {
+        resultEl.textContent = fmtLong(selDate);
+    } else if (!yearsWithData.has(sYear)) {
+        resultEl.textContent = '--';
+    } else {
+        const partial = latestDate && latestDate.slice(5) < '12-31';
+        resultEl.textContent = partial ? 'Not yet reached' : 'Not reached';
+    }
+
+    // Normal — average day-of-year across the normals-period years that reached the threshold
+    const normalYears = [...yearsWithData].filter(y => y >= rangeS && y <= rangeE);
+    const reachedYears = normalYears.filter(y => perYear[y]);
+    normalLabelEl.innerHTML = `Average ${whichLabel} Date ${compareLabel} ${threshold}${unit} (${fieldLabel}) — ${rangeText}` +
+        (normalYears.length ? small(`Reached in ${reachedYears.length} of ${normalYears.length} years`) : '');
+
+    let avgDoy = null;
+    if (reachedYears.length) {
+        avgDoy = reachedYears.reduce((s, y) => s + dayOfYear(perYear[y][which]), 0) / reachedYears.length;
+        normalEl.textContent = doyToDateStr(Math.round(avgDoy));
+    } else {
+        normalEl.textContent = normalYears.length ? 'Never reached' : '--';
+    }
+
+    // Departure of the selected year's date from the average date
+    if (selDate && avgDoy !== null) {
+        const diff = Math.round(dayOfYear(selDate) - avgDoy);
+        depEl.style.color = 'var(--sub-text)';
+        if (diff === 0) depEl.textContent = 'On the average date';
+        else depEl.textContent = `${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'} ${diff < 0 ? 'earlier' : 'later'} than average`;
+    } else {
+        depEl.textContent = '';
+    }
 }
 
 function updateThresholdCard() {
