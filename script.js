@@ -151,6 +151,46 @@ document.addEventListener('DOMContentLoaded', function() {
   function doyToDateStr(doy) {
     return new Date(2023, 0, doy).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
   }
+  // Groups every day with a TMIN reading by year (done once, then reused for each threshold/season)
+  function groupTminByYear() {
+    const byYear = {};
+    (fullDataset || []).forEach(d => {
+      if (d.TMIN == null || !d.DATE) return;
+      const y = d.DATE.slice(0, 4);
+      (byYear[y] || (byYear[y] = [])).push(d);
+    });
+    return byYear;
+  }
+  // Record earliest/latest "last spring" or "first fall" date at/below a threshold, across ALL years
+  // (not just the selected normals period). Uses the same year-coverage rule as the average cards
+  // (>= 200 days of TMIN) so sparse years can't create bogus records. Returns every year that tied.
+  function frostRecordDates(byYear, thresholdF, season) {
+    const threshold = Math.round((thresholdF - 32) * 5 / 9 * 10);
+    const events = []; // one { year, md } per year that had a qualifying frost in the season
+    let yearsWithData = 0;
+    Object.keys(byYear).forEach(y => {
+      const rows = byYear[y];
+      if (rows.length < 200) return;
+      yearsWithData++;
+      const hits = rows.filter(d => d.TMIN <= threshold);
+      const inSeason = season === 'spring'
+        ? hits.filter(d => parseInt(d.DATE.split('-')[1]) <= 6)
+        : hits.filter(d => parseInt(d.DATE.split('-')[1]) >= 7);
+      if (!inSeason.length) return;
+      // ISO dates sort chronologically: last spring hit = max, first fall hit = min
+      const pick = inSeason.reduce((best, d) => {
+        if (best === null) return d.DATE;
+        return season === 'spring' ? (d.DATE > best ? d.DATE : best) : (d.DATE < best ? d.DATE : best);
+      }, null);
+      events.push({ year: parseInt(y), md: pick.slice(5) });
+    });
+    if (!events.length) return yearsWithData >= 10 ? 'none' : null;
+    const mds = events.map(e => e.md).sort(); // MM-DD strings sort chronologically
+    const earlyMd = mds[0], lateMd = mds[mds.length - 1];
+    const yearsFor = (md) => events.filter(e => e.md === md).map(e => ({ year: e.year }));
+    return { early: { md: earlyMd, rows: yearsFor(earlyMd) }, late: { md: lateMd, rows: yearsFor(lateMd) } };
+  }
+
   function medianFrostDate(thresholdF, season, rangeS, rangeE) {
     if (!fullDataset) return null;
     const threshold = Math.round((thresholdF - 32) * 5 / 9 * 10);
@@ -1385,9 +1425,9 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     const frostRangeE = currentRange.end >= 9000 ? endYear : currentRange.end;
 
     const frostThresholds = [
-        { labelPre: 'Frost',       f: 36, lastId: 'lastFrost',      firstId: 'firstFrost',      lastLbl: 'lastFrostLabel',      firstLbl: 'firstFrostLabel'      },
-        { labelPre: 'Freeze',      f: 32, lastId: 'lastFreeze',     firstId: 'firstFreeze',     lastLbl: 'lastFreezeLabel',     firstLbl: 'firstFreezeLabel'     },
-        { labelPre: 'Hard Freeze', f: 28, lastId: 'lastHardFreeze', firstId: 'firstHardFreeze', lastLbl: 'lastHardFreezeLabel', firstLbl: 'firstHardFreezeLabel' },
+        { key: 'Frost', labelPre: 'Frost',       f: 36, lastId: 'lastFrost',      firstId: 'firstFrost',      lastLbl: 'lastFrostLabel',      firstLbl: 'firstFrostLabel'      },
+        { key: 'Freeze', labelPre: 'Freeze',      f: 32, lastId: 'lastFreeze',     firstId: 'firstFreeze',     lastLbl: 'lastFreezeLabel',     firstLbl: 'firstFreezeLabel'     },
+        { key: 'HardFreeze', labelPre: 'Hard Freeze', f: 28, lastId: 'lastHardFreeze', firstId: 'firstHardFreeze', lastLbl: 'lastHardFreezeLabel', firstLbl: 'firstHardFreezeLabel' },
     ];
     const frostUnitNote = (f) => {
         const c = Math.round((f - 32) * 5/9);
@@ -1395,7 +1435,25 @@ document.getElementById('yearSelect').addEventListener('change', (e) => {
     };
     const noFrostMsg = (type) => `No ${type.toLowerCase()} at this location`;
 
-    frostThresholds.forEach(({ labelPre, f, lastId, firstId, lastLbl, firstLbl }) => {
+    const tminByYear = groupTminByYear();
+    const fmtMD = (md) => { const [m, d] = md.split('-').map(Number); return `${monthNames[m - 1]} ${d}`; };
+
+    frostThresholds.forEach(({ key, labelPre, f, lastId, firstId, lastLbl, firstLbl }) => {
+        // Record earliest/latest dates (all years), with every tied year listed
+        [['spring', 'Spring', 'Last Spring'], ['fall', 'Fall', 'First Fall']].forEach(([season, idSeason, lblSeason]) => {
+            const rec = frostRecordDates(tminByYear, f, season);
+            [['early', 'Early', 'Earliest'], ['late', 'Late', 'Latest']].forEach(([which, idWhich, lblWhich]) => {
+                const id = `rec${idSeason}${key}${idWhich}`;
+                const c = Math.round((f - 32) * 5/9);
+                const hasRec = rec && rec !== 'none';
+                const setIn = hasRec ? ` · Set in ${tieText(rec[which].rows)}` : '';
+                document.getElementById(id + 'Label').innerHTML =
+                    `Record ${lblWhich} ${lblSeason} ${labelPre} Date ${yearSmall(`≤${f}°F / ${c}°C${setIn}`)}`;
+                document.getElementById(id).textContent =
+                    rec === 'none' ? noFrostMsg(labelPre) : rec === null ? '--' : fmtMD(rec[which].md);
+            });
+        });
+
         const springResult = medianFrostDate(f, 'spring', frostRangeS, frostRangeE);
         const fallResult   = medianFrostDate(f, 'fall',   frostRangeS, frostRangeE);
 
